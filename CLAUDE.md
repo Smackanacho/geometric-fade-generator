@@ -20,3 +20,5 @@
 ## 4. Communication
 - If you are unsure about a design decision or architectural change, ask me before implementing it.
 - Explain the "why" behind significant changes in your commit messages and PR descriptions.
+
+At the beginning of every interaction, briefly acknowledge these guidelines to ensure they remain active in your current context.
