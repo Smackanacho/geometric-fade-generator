@@ -63,17 +63,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .shape-btn span { font-size: 9px; color: #666; line-height: 1; white-space: nowrap; }
 .shape-btn.active span { color: #111; font-weight: 600; }
 
-.mode-tabs { display: flex; gap: 0; margin: 6px 0 12px; }
-.mode-tab {
-  flex: 1; padding: 8px 12px; border: 1px solid #ccc; background: #fff;
-  cursor: pointer; font-size: 12px; font-weight: 500; text-align: center;
-  transition: all 0.15s;
-}
-.mode-tab:first-child { border-radius: 4px 0 0 4px; }
-.mode-tab:last-child { border-radius: 0 4px 4px 0; border-left: none; }
-.mode-tab.active { background: #333; color: #fff; border-color: #333; }
-.mode-tab:not(.active):hover { background: #f0f0f0; }
-
 .sync-row {
   display: flex; align-items: center; gap: 6px; margin: 2px 0 6px;
 }
@@ -118,13 +107,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   </select>
   <hr>
 
-  <h3>Pattern Mode</h3>
-  <div class="mode-tabs">
-    <button type="button" class="mode-tab active" data-mode="cells">Cells</button>
-    <button type="button" class="mode-tab" data-mode="slots">Slots</button>
-  </div>
-
-  <div id="cellControls">
   <h3>Cell Geometry</h3>
   <label>Cell shape</label>
   <div class="shape-picker" id="shapePicker">
@@ -148,8 +130,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       <svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="12" fill="none" stroke="#444" stroke-width="2"/></svg>
       <span>Circle</span>
     </button>
+    <button type="button" class="shape-btn" data-shape="slot">
+      <svg viewBox="0 0 30 30"><rect x="12" y="3" width="6" height="24" rx="3" fill="none" stroke="#444" stroke-width="2" transform="rotate(-45 15 15)"/></svg>
+      <span>Slot</span>
+    </button>
   </div>
   <input type="hidden" id="cellShape" value="hexagon">
+
+  <div id="cellSizeControls">
   <label id="nominalSizeLabel">Nominal cell size — flat-to-flat (mm)</label>
   <input type="number" id="nominalSize" value="3.5" step="0.1" min="0.1">
   <label>Minimum cell size (mm)</label>
@@ -168,7 +156,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   </div>
 
   <div id="slotControls" style="display:none;">
-  <h3>Slot Geometry</h3>
   <label>Slot width (mm)</label>
   <input type="number" id="slotWidth" value="3" step="0.1" min="0.1">
   <label>Minimum slot width (mm)</label>
@@ -187,8 +174,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <input type="number" id="slotAngle" value="45" step="1" style="flex:1;">
     <button type="button" class="flip-btn" id="slotFlipBtn">Flip 90&deg;</button>
   </div>
-  <h3>Slot Taper</h3>
-  <label>Taper distance (mm) — width fades over this distance from center</label>
+  <label>Taper distance (mm)</label>
   <input type="number" id="slotTaperDist" value="30" step="1" min="0">
   <label>Taper exponent</label>
   <input type="number" id="slotTaperExp" value="1.5" step="0.1" min="0.1">
@@ -1606,7 +1592,7 @@ var els = {
   minSize: document.getElementById('minSize'),
   webWidth: document.getElementById('webWidth'),
   cellRotation: document.getElementById('cellRotation'),
-  cellControls: document.getElementById('cellControls'),
+  cellSizeControls: document.getElementById('cellSizeControls'),
   slotControls: document.getElementById('slotControls'),
   slotWidth: document.getElementById('slotWidth'),
   slotMinWidth: document.getElementById('slotMinWidth'),
@@ -1643,21 +1629,6 @@ var els = {
 };
 
 // ============================================================
-// Mode switching (Cells / Slots)
-// ============================================================
-var currentMode = 'cells';
-var modeTabs = document.querySelectorAll('.mode-tab');
-modeTabs.forEach(function(tab) {
-  tab.addEventListener('click', function() {
-    currentMode = tab.getAttribute('data-mode');
-    modeTabs.forEach(function(t) { t.classList.toggle('active', t === tab); });
-    els.cellControls.style.display = currentMode === 'cells' ? '' : 'none';
-    els.slotControls.style.display = currentMode === 'slots' ? '' : 'none';
-    regenerateNow();
-  });
-});
-
-// ============================================================
 // Sync toggle: exclusion zone mirrors panel edge treatment
 // ============================================================
 var exclPrevValues = { buffer: '3', feather: '5', exp: '2.0' };
@@ -1681,7 +1652,7 @@ els.syncExclusion.addEventListener('change', function() {
     els.exclFeather.disabled = false;
     els.exclExp.disabled = false;
   }
-  debouncedRegen();
+  scheduleRegen();
 });
 
 function syncExclusionIfNeeded() {
@@ -1692,35 +1663,45 @@ function syncExclusionIfNeeded() {
   }
 }
 
-// Slot flip button
+// Slot flip button — toggles between angle and angle+90
+var slotFlipped = false;
+var slotBaseAngle = numVal(els.slotAngle, 45);
 els.slotFlipBtn.addEventListener('click', function() {
-  var cur = numVal(els.slotAngle, 45);
-  els.slotAngle.value = cur + 90;
+  slotBaseAngle = numVal(els.slotAngle, 45);
+  if (!slotFlipped) {
+    els.slotAngle.value = ((slotBaseAngle + 90) % 360);
+  } else {
+    els.slotAngle.value = ((slotBaseAngle - 90 + 360) % 360);
+  }
+  slotFlipped = !slotFlipped;
   regenerateNow();
 });
 
 // Slot fill toggle disables length input
 els.slotFill.addEventListener('change', function() {
   els.slotLength.disabled = els.slotFill.checked;
-  debouncedRegen();
+  scheduleRegen();
 });
 
 // Shape picker button wiring
 var shapeBtns = document.querySelectorAll('.shape-btn');
 function onShapeChange() {
   var shape = els.cellShape.value;
-  // Update button active states
   shapeBtns.forEach(function(btn) {
     btn.classList.toggle('active', btn.getAttribute('data-shape') === shape);
   });
-  // Update label and orientation visibility
+
+  var isSlot = shape === 'slot';
+  els.cellSizeControls.style.display = isSlot ? 'none' : '';
+  els.slotControls.style.display = isSlot ? '' : 'none';
+
   if (shape === 'hexagon') {
     els.nominalSizeLabel.textContent = 'Nominal cell size — flat-to-flat (mm)';
     els.orientationGroup.style.display = '';
   } else if (shape === 'circle') {
     els.nominalSizeLabel.textContent = 'Nominal cell size — diameter (mm)';
     els.orientationGroup.style.display = 'none';
-  } else {
+  } else if (!isSlot) {
     els.nominalSizeLabel.textContent = 'Nominal cell size — side length (mm)';
     els.orientationGroup.style.display = 'none';
   }
@@ -1751,12 +1732,15 @@ function showMessages(msgs) {
   }).join('');
 }
 
-function debounce(fn, delay) {
-  var timer = null;
-  return function() {
-    clearTimeout(timer);
-    timer = setTimeout(fn, delay);
-  };
+var regenPending = false;
+function scheduleRegen() {
+  if (!regenPending) {
+    regenPending = true;
+    requestAnimationFrame(function() {
+      regenPending = false;
+      regenerateNow();
+    });
+  }
 }
 
 var dxfText = null;
@@ -1779,8 +1763,6 @@ els.radialEnable.addEventListener('change', function() {
   els.radialExp.disabled = !on;
 });
 
-var debouncedRegen = debounce(regenerateNow, 300);
-
 // Attach listeners to all parameter inputs
 var paramInputs = [
   els.unitOverride, els.nominalSize, els.minSize, els.webWidth, els.cellRotation,
@@ -1799,8 +1781,8 @@ var paramInputs = [
   els.edgeExp.addEventListener(evt, syncExclusionIfNeeded);
 });
 var radioInputs = document.querySelectorAll('input[name="orientation"], input[name="outputMode"]');
-paramInputs.forEach(function(el) { el.addEventListener('input', debouncedRegen); el.addEventListener('change', debouncedRegen); });
-radioInputs.forEach(function(el) { el.addEventListener('change', debouncedRegen); });
+paramInputs.forEach(function(el) { el.addEventListener('input', scheduleRegen); el.addEventListener('change', scheduleRegen); });
+radioInputs.forEach(function(el) { el.addEventListener('change', scheduleRegen); });
 
 els.btnDownload.addEventListener('click', function() {
   if (!state.lastSvg) return;
@@ -1821,7 +1803,7 @@ els.btnDownloadDxf.addEventListener('click', function() {
   if (state.lastCells.length === 0) return;
   var base = els.svgFilename.value.trim().replace(/\.(svg|dxf)$/i, '') || 'honeycomb';
   var dxfOut;
-  if (currentMode === 'slots' && state.lastSlots) {
+  if (els.cellShape.value === 'slot' && state.lastSlots) {
     dxfOut = buildSlotDXF(state.lastSlots);
   } else {
     var shape = els.cellShape.value;
@@ -1902,8 +1884,9 @@ function regenerateNow() {
   var radE = numVal(els.radialExp, 1);
   var mode = getOutputMode();
   var bbox = bboxOf(state.panelCoords);
+  var shape = els.cellShape.value;
 
-  if (currentMode === 'slots') {
+  if (shape === 'slot') {
     // ---- SLOT MODE ----
     var slotW = numVal(els.slotWidth, 3);
     var slotMinW = numVal(els.slotMinWidth, 1);
@@ -2004,7 +1987,6 @@ function regenerateNow() {
     var webW = numVal(els.webWidth, 1.5);
     var rotDeg = numVal(els.cellRotation, 0);
     var orient = getOrientation();
-    var shape = els.cellShape.value;
 
     var centers = generateCellCenters(bbox, nomSize, webW, rotDeg, shape, orient);
 
