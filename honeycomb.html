@@ -62,6 +62,44 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .shape-btn svg { width: 28px; height: 28px; }
 .shape-btn span { font-size: 9px; color: #666; line-height: 1; white-space: nowrap; }
 .shape-btn.active span { color: #111; font-weight: 600; }
+
+.mode-tabs { display: flex; gap: 0; margin: 6px 0 12px; }
+.mode-tab {
+  flex: 1; padding: 8px 12px; border: 1px solid #ccc; background: #fff;
+  cursor: pointer; font-size: 12px; font-weight: 500; text-align: center;
+  transition: all 0.15s;
+}
+.mode-tab:first-child { border-radius: 4px 0 0 4px; }
+.mode-tab:last-child { border-radius: 0 4px 4px 0; border-left: none; }
+.mode-tab.active { background: #333; color: #fff; border-color: #333; }
+.mode-tab:not(.active):hover { background: #f0f0f0; }
+
+.sync-row {
+  display: flex; align-items: center; gap: 6px; margin: 2px 0 6px;
+}
+.sync-toggle {
+  position: relative; width: 36px; height: 20px; cursor: pointer;
+  display: inline-block; vertical-align: middle; flex-shrink: 0;
+}
+.sync-toggle input { opacity: 0; width: 0; height: 0; }
+.sync-toggle .slider {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: #ccc; border-radius: 10px; transition: 0.2s;
+}
+.sync-toggle .slider::before {
+  content: ''; position: absolute; width: 16px; height: 16px;
+  left: 2px; bottom: 2px; background: #fff; border-radius: 50%; transition: 0.2s;
+}
+.sync-toggle input:checked + .slider { background: #333; }
+.sync-toggle input:checked + .slider::before { transform: translateX(16px); }
+.sync-label { font-size: 11px; color: #777; cursor: pointer; }
+
+.flip-btn {
+  padding: 4px 10px; border: 1px solid #ccc; border-radius: 3px;
+  background: #fff; cursor: pointer; font-size: 11px; font-weight: 500;
+  transition: all 0.15s;
+}
+.flip-btn:hover { background: #f0f0f0; border-color: #888; }
 </style>
 </head>
 <body>
@@ -80,6 +118,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   </select>
   <hr>
 
+  <h3>Pattern Mode</h3>
+  <div class="mode-tabs">
+    <button type="button" class="mode-tab active" data-mode="cells">Cells</button>
+    <button type="button" class="mode-tab" data-mode="slots">Slots</button>
+  </div>
+
+  <div id="cellControls">
   <h3>Cell Geometry</h3>
   <label>Cell shape</label>
   <div class="shape-picker" id="shapePicker">
@@ -120,6 +165,34 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   </div>
   <label>Cell rotation (deg)</label>
   <input type="number" id="cellRotation" value="0" step="1">
+  </div>
+
+  <div id="slotControls" style="display:none;">
+  <h3>Slot Geometry</h3>
+  <label>Slot width (mm)</label>
+  <input type="number" id="slotWidth" value="3" step="0.1" min="0.1">
+  <label>Minimum slot width (mm)</label>
+  <input type="number" id="slotMinWidth" value="1" step="0.1" min="0.1">
+  <label>Slot length (mm)</label>
+  <div style="display:flex; gap:6px; align-items:center;">
+    <input type="number" id="slotLength" value="40" step="1" min="1" style="flex:1;">
+    <div class="check-group" style="margin:0; white-space:nowrap;">
+      <label><input type="checkbox" id="slotFill"> Fill</label>
+    </div>
+  </div>
+  <label>Slot spacing (mm)</label>
+  <input type="number" id="slotSpacing" value="6" step="0.5" min="0.5">
+  <label>Slot angle (deg)</label>
+  <div style="display:flex; gap:6px; align-items:center;">
+    <input type="number" id="slotAngle" value="45" step="1" style="flex:1;">
+    <button type="button" class="flip-btn" id="slotFlipBtn">Flip 90&deg;</button>
+  </div>
+  <h3>Slot Taper</h3>
+  <label>Taper distance (mm) — width fades over this distance from center</label>
+  <input type="number" id="slotTaperDist" value="30" step="1" min="0">
+  <label>Taper exponent</label>
+  <input type="number" id="slotTaperExp" value="1.5" step="0.1" min="0.1">
+  </div>
   <hr>
 
   <h3>Panel Edge Treatment</h3>
@@ -132,6 +205,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   <hr>
 
   <h3>Exclusion Zone Treatment</h3>
+  <div class="sync-row">
+    <label class="sync-toggle"><input type="checkbox" id="syncExclusion"><span class="slider"></span></label>
+    <span class="sync-label" id="syncLabel">Sync with panel edge</span>
+  </div>
   <label>Structural buffer (mm)</label>
   <input type="number" id="exclBuffer" value="3" step="0.5" min="0">
   <label>Feathering distance (mm)</label>
@@ -197,6 +274,7 @@ var state = {
   panelCoords: null,      // [[x,y], ...] — panel boundary (not closed)
   exclusionCoords: [],    // [[[x,y], ...], ...] — exclusion zone boundaries
   panelGeoJSON: null,     // turf polygon for containment checks
+  lastSlots: null,        // [{cx, cy, x1, y1, x2, y2, width, vertices}, ...]
   exclusionGeoJSON: [],   // turf polygons for containment checks
   centroid: null,         // [x, y] panel centroid
   lastCells: [],          // [{cx, cy, size, vertices}, ...]
@@ -950,6 +1028,168 @@ function cellArea(size, shape) {
 }
 
 // ============================================================
+// SECTION 3b: Slot Generation
+//
+// Slots are parallel capsule shapes (stadium / discorectangle).
+// They tile in 1D perpendicular to the slot angle.
+// Width tapers as distance from panel centroid increases.
+// "Fill" mode extends each slot to fill the boundary.
+// ============================================================
+
+function generateSlotCenterlines(bbox, centroid, slotAngle, slotSpacing, slotLength, fillMode, panelCoords, panelGeoJSON, edgeMargin) {
+  var angRad = slotAngle * Math.PI / 180;
+  var dirX = Math.cos(angRad), dirY = Math.sin(angRad);
+  var perpX = -dirY, perpY = dirX;
+
+  var hw = (bbox.maxX - bbox.minX) / 2;
+  var hh = (bbox.maxY - bbox.minY) / 2;
+  var halfDiag = Math.sqrt(hw * hw + hh * hh);
+  var cx = centroid[0], cy = centroid[1];
+
+  var nSlots = Math.ceil(halfDiag / slotSpacing) + 2;
+  var slots = [];
+
+  for (var i = -nSlots; i <= nSlots; i++) {
+    var offset = i * slotSpacing;
+    var lineCx = cx + offset * perpX;
+    var lineCy = cy + offset * perpY;
+
+    var halfLen;
+    if (fillMode) {
+      halfLen = computeFillHalfLength(lineCx, lineCy, dirX, dirY, panelCoords, panelGeoJSON, edgeMargin);
+      if (halfLen <= 0) continue;
+    } else {
+      halfLen = slotLength / 2;
+    }
+
+    var x1 = lineCx - halfLen * dirX;
+    var y1 = lineCy - halfLen * dirY;
+    var x2 = lineCx + halfLen * dirX;
+    var y2 = lineCy + halfLen * dirY;
+
+    slots.push({
+      cx: lineCx, cy: lineCy,
+      x1: x1, y1: y1, x2: x2, y2: y2,
+      halfLen: halfLen, perpDist: Math.abs(offset)
+    });
+  }
+  return slots;
+}
+
+function computeFillHalfLength(cx, cy, dirX, dirY, panelCoords, panelGeoJSON, margin) {
+  var maxT = 0;
+  var step = 0.5;
+  var limit = 500;
+
+  for (var sign = -1; sign <= 1; sign += 2) {
+    var t = 0;
+    while (t < limit) {
+      var px = cx + sign * t * dirX;
+      var py = cy + sign * t * dirY;
+      if (!pointInPoly(px, py, panelGeoJSON)) break;
+      t += step;
+    }
+    var edgeT = t;
+    var clipped = Math.max(0, edgeT - margin);
+    if (clipped > maxT) maxT = clipped;
+  }
+  return maxT;
+}
+
+function capsuleVertices(cx, cy, x1, y1, x2, y2, width) {
+  var r = width / 2;
+  var dx = x2 - x1, dy = y2 - y1;
+  var len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1e-10) {
+    var segs = 24;
+    var pts = [];
+    for (var i = 0; i < segs; i++) {
+      var a = (2 * Math.PI * i) / segs;
+      pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+    return pts;
+  }
+
+  var ux = dx / len, uy = dy / len;
+  var px = -uy, py = ux;
+
+  var pts = [];
+  var arcSegs = 12;
+
+  // Left side: straight edge from end1+perp to end2+perp
+  // End2 semicircle
+  var startAngle2 = Math.atan2(py, px);
+  for (var i = 0; i <= arcSegs; i++) {
+    var a = startAngle2 - Math.PI * i / arcSegs;
+    pts.push([x2 + r * Math.cos(a), y2 + r * Math.sin(a)]);
+  }
+
+  // End1 semicircle
+  var startAngle1 = Math.atan2(-py, -px);
+  for (var i = 0; i <= arcSegs; i++) {
+    var a = startAngle1 - Math.PI * i / arcSegs;
+    pts.push([x1 + r * Math.cos(a), y1 + r * Math.sin(a)]);
+  }
+
+  return pts;
+}
+
+function clipSlotToPanel(x1, y1, x2, y2, panelCoords, panelGeoJSON, edgeMargin, exclCoords, exclGeoJSON, exclBuffer) {
+  var dx = x2 - x1, dy = y2 - y1;
+  var len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1e-10) return null;
+  var ux = dx / len, uy = dy / len;
+  var step = 0.5;
+
+  var cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+
+  // Walk outward from center in both directions to find usable extent
+  var posLimit = len / 2, negLimit = len / 2;
+
+  for (var t = 0; t <= len / 2; t += step) {
+    var px = cx + t * ux, py = cy + t * uy;
+    if (!pointInPoly(px, py, panelGeoJSON) ||
+        distToBoundary(px, py, panelCoords) < edgeMargin) {
+      posLimit = Math.max(0, t - step);
+      break;
+    }
+    // Check exclusion zones
+    var blocked = false;
+    for (var e = 0; e < exclCoords.length; e++) {
+      if (pointInPoly(px, py, exclGeoJSON[e]) ||
+          distToBoundary(px, py, exclCoords[e]) < exclBuffer) {
+        blocked = true; break;
+      }
+    }
+    if (blocked) { posLimit = Math.max(0, t - step); break; }
+  }
+
+  for (var t = 0; t <= len / 2; t += step) {
+    var px = cx - t * ux, py = cy - t * uy;
+    if (!pointInPoly(px, py, panelGeoJSON) ||
+        distToBoundary(px, py, panelCoords) < edgeMargin) {
+      negLimit = Math.max(0, t - step);
+      break;
+    }
+    var blocked = false;
+    for (var e = 0; e < exclCoords.length; e++) {
+      if (pointInPoly(px, py, exclGeoJSON[e]) ||
+          distToBoundary(px, py, exclCoords[e]) < exclBuffer) {
+        blocked = true; break;
+      }
+    }
+    if (blocked) { negLimit = Math.max(0, t - step); break; }
+  }
+
+  if (posLimit + negLimit < 1) return null;
+
+  return {
+    x1: cx - negLimit * ux, y1: cy - negLimit * uy,
+    x2: cx + posLimit * ux, y2: cy + posLimit * uy
+  };
+}
+
+// ============================================================
 // SECTION 4: Fade Function Computation
 // ============================================================
 
@@ -1217,6 +1457,102 @@ function buildOutputDXF(cells, shape) {
 }
 
 // ============================================================
+// SECTION 7b: DXF Output for Slots (capsule = 2 lines + 2 arcs via LWPOLYLINE with bulge)
+// ============================================================
+
+function buildSlotDXF(slots) {
+  var handle = 0x100;
+  function nextHandle() { return (handle++).toString(16).toUpperCase(); }
+
+  var dxf = '';
+  dxf += '0\nSECTION\n2\nHEADER\n';
+  dxf += '9\n$ACADVER\n1\nAC1014\n';
+  dxf += '9\n$INSUNITS\n70\n4\n';
+  dxf += '9\n$HANDSEED\n5\nFFFF\n';
+  dxf += '0\nENDSEC\n';
+
+  dxf += '0\nSECTION\n2\nTABLES\n';
+  dxf += '0\nTABLE\n2\nVPORT\n5\n8\n100\nAcDbSymbolTable\n0\nENDTAB\n';
+  dxf += '0\nTABLE\n2\nLTYPE\n5\n5\n100\nAcDbSymbolTable\n';
+  dxf += '0\nLTYPE\n5\n14\n100\nAcDbSymbolTableRecord\n100\nAcDbLinetypeTableRecord\n2\nBYBLOCK\n70\n0\n';
+  dxf += '0\nLTYPE\n5\n15\n100\nAcDbSymbolTableRecord\n100\nAcDbLinetypeTableRecord\n2\nBYLAYER\n70\n0\n';
+  dxf += '0\nENDTAB\n';
+  dxf += '0\nTABLE\n2\nLAYER\n5\n2\n100\nAcDbSymbolTable\n70\n1\n';
+  dxf += '0\nLAYER\n5\n50\n100\nAcDbSymbolTableRecord\n100\nAcDbLayerTableRecord\n2\n0\n70\n0\n62\n7\n6\nCONTINUOUS\n';
+  dxf += '0\nENDTAB\n';
+  dxf += '0\nTABLE\n2\nSTYLE\n5\n3\n100\nAcDbSymbolTable\n70\n0\n0\nENDTAB\n';
+  dxf += '0\nTABLE\n2\nVIEW\n5\n6\n100\nAcDbSymbolTable\n70\n0\n0\nENDTAB\n';
+  dxf += '0\nTABLE\n2\nUCS\n5\n7\n100\nAcDbSymbolTable\n70\n0\n0\nENDTAB\n';
+  dxf += '0\nTABLE\n2\nAPPID\n5\n9\n100\nAcDbSymbolTable\n70\n1\n';
+  dxf += '0\nAPPID\n5\n12\n100\nAcDbSymbolTableRecord\n100\nAcDbRegAppTableRecord\n2\nACAD\n70\n0\n';
+  dxf += '0\nENDTAB\n';
+  dxf += '0\nTABLE\n2\nDIMSTYLE\n5\nA\n100\nAcDbSymbolTable\n70\n0\n0\nENDTAB\n';
+  dxf += '0\nTABLE\n2\nBLOCK_RECORD\n5\n1\n100\nAcDbSymbolTable\n70\n1\n';
+  dxf += '0\nBLOCK_RECORD\n5\n1F\n100\nAcDbSymbolTableRecord\n100\nAcDbBlockTableRecord\n2\n*MODEL_SPACE\n';
+  dxf += '0\nBLOCK_RECORD\n5\n1B\n100\nAcDbSymbolTableRecord\n100\nAcDbBlockTableRecord\n2\n*PAPER_SPACE\n';
+  dxf += '0\nENDTAB\n';
+  dxf += '0\nENDSEC\n';
+
+  dxf += '0\nSECTION\n2\nBLOCKS\n';
+  dxf += '0\nBLOCK\n5\n20\n100\nAcDbEntity\n100\nAcDbBlockBegin\n2\n*MODEL_SPACE\n';
+  dxf += '0\nENDBLK\n5\n21\n100\nAcDbEntity\n100\nAcDbBlockEnd\n';
+  dxf += '0\nBLOCK\n5\n1C\n100\nAcDbEntity\n100\nAcDbBlockBegin\n2\n*PAPER_SPACE\n';
+  dxf += '0\nENDBLK\n5\n1D\n100\nAcDbEntity\n100\nAcDbBlockEnd\n';
+  dxf += '0\nENDSEC\n';
+
+  dxf += '0\nSECTION\n2\nENTITIES\n';
+
+  for (var i = 0; i < slots.length; i++) {
+    var s = slots[i];
+    var r = s.width / 2;
+    var dx = s.x2 - s.x1, dy = s.y2 - s.y1;
+    var len = Math.sqrt(dx * dx + dy * dy);
+
+    if (len < 1e-10) {
+      // Degenerate slot → emit as circle
+      dxf += '0\nCIRCLE\n5\n' + nextHandle() + '\n';
+      dxf += '100\nAcDbEntity\n8\n0\n100\nAcDbCircle\n';
+      dxf += '10\n' + s.cx.toFixed(6) + '\n20\n' + s.cy.toFixed(6) + '\n30\n0\n';
+      dxf += '40\n' + r.toFixed(6) + '\n';
+      continue;
+    }
+
+    // Capsule as LWPOLYLINE with 4 vertices + bulge on arc vertices
+    var ux = dx / len, uy = dy / len;
+    var px = -uy, py = ux;
+    // bulge for a semicircle = tan(pi/4) = 1.0
+    var bulge = 1.0;
+
+    // 4 corners: p1(end2+perp), p2(end2-perp), p3(end1-perp), p4(end1+perp)
+    var p1x = s.x2 + r * px, p1y = s.y2 + r * py;
+    var p2x = s.x2 - r * px, p2y = s.y2 - r * py;
+    var p3x = s.x1 - r * px, p3y = s.y1 - r * py;
+    var p4x = s.x1 + r * px, p4y = s.y1 + r * py;
+
+    dxf += '0\nLWPOLYLINE\n5\n' + nextHandle() + '\n';
+    dxf += '100\nAcDbEntity\n8\n0\n100\nAcDbPolyline\n';
+    dxf += '90\n4\n70\n1\n43\n0.0\n';
+    // Vertex 1 (straight to v2)
+    dxf += '10\n' + p1x.toFixed(6) + '\n20\n' + p1y.toFixed(6) + '\n42\n' + bulge.toFixed(6) + '\n';
+    // Vertex 2 (arc to v3)
+    dxf += '10\n' + p2x.toFixed(6) + '\n20\n' + p2y.toFixed(6) + '\n42\n0\n';
+    // Vertex 3 (straight to v4)
+    dxf += '10\n' + p3x.toFixed(6) + '\n20\n' + p3y.toFixed(6) + '\n42\n' + bulge.toFixed(6) + '\n';
+    // Vertex 4 (arc to v1)
+    dxf += '10\n' + p4x.toFixed(6) + '\n20\n' + p4y.toFixed(6) + '\n42\n0\n';
+  }
+
+  dxf += '0\nENDSEC\n';
+  dxf += '0\nSECTION\n2\nOBJECTS\n';
+  dxf += '0\nDICTIONARY\n5\nC\n100\nAcDbDictionary\n';
+  dxf += '3\nACAD_GROUP\n350\nD\n';
+  dxf += '0\nDICTIONARY\n5\nD\n100\nAcDbDictionary\n';
+  dxf += '0\nENDSEC\n';
+  dxf += '0\nEOF\n';
+  return dxf;
+}
+
+// ============================================================
 // SECTION 8: Stats Computation
 // ============================================================
 
@@ -1270,6 +1606,18 @@ var els = {
   minSize: document.getElementById('minSize'),
   webWidth: document.getElementById('webWidth'),
   cellRotation: document.getElementById('cellRotation'),
+  cellControls: document.getElementById('cellControls'),
+  slotControls: document.getElementById('slotControls'),
+  slotWidth: document.getElementById('slotWidth'),
+  slotMinWidth: document.getElementById('slotMinWidth'),
+  slotLength: document.getElementById('slotLength'),
+  slotFill: document.getElementById('slotFill'),
+  slotSpacing: document.getElementById('slotSpacing'),
+  slotAngle: document.getElementById('slotAngle'),
+  slotFlipBtn: document.getElementById('slotFlipBtn'),
+  slotTaperDist: document.getElementById('slotTaperDist'),
+  slotTaperExp: document.getElementById('slotTaperExp'),
+  syncExclusion: document.getElementById('syncExclusion'),
   edgeMargin: document.getElementById('edgeMargin'),
   edgeFeather: document.getElementById('edgeFeather'),
   edgeExp: document.getElementById('edgeExp'),
@@ -1293,6 +1641,69 @@ var els = {
   statMaxSize: document.getElementById('statMaxSize'),
   statPanelArea: document.getElementById('statPanelArea')
 };
+
+// ============================================================
+// Mode switching (Cells / Slots)
+// ============================================================
+var currentMode = 'cells';
+var modeTabs = document.querySelectorAll('.mode-tab');
+modeTabs.forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    currentMode = tab.getAttribute('data-mode');
+    modeTabs.forEach(function(t) { t.classList.toggle('active', t === tab); });
+    els.cellControls.style.display = currentMode === 'cells' ? '' : 'none';
+    els.slotControls.style.display = currentMode === 'slots' ? '' : 'none';
+    regenerateNow();
+  });
+});
+
+// ============================================================
+// Sync toggle: exclusion zone mirrors panel edge treatment
+// ============================================================
+var exclPrevValues = { buffer: '3', feather: '5', exp: '2.0' };
+
+els.syncExclusion.addEventListener('change', function() {
+  if (els.syncExclusion.checked) {
+    exclPrevValues.buffer = els.exclBuffer.value;
+    exclPrevValues.feather = els.exclFeather.value;
+    exclPrevValues.exp = els.exclExp.value;
+    els.exclBuffer.value = els.edgeMargin.value;
+    els.exclFeather.value = els.edgeFeather.value;
+    els.exclExp.value = els.edgeExp.value;
+    els.exclBuffer.disabled = true;
+    els.exclFeather.disabled = true;
+    els.exclExp.disabled = true;
+  } else {
+    els.exclBuffer.value = exclPrevValues.buffer;
+    els.exclFeather.value = exclPrevValues.feather;
+    els.exclExp.value = exclPrevValues.exp;
+    els.exclBuffer.disabled = false;
+    els.exclFeather.disabled = false;
+    els.exclExp.disabled = false;
+  }
+  debouncedRegen();
+});
+
+function syncExclusionIfNeeded() {
+  if (els.syncExclusion.checked) {
+    els.exclBuffer.value = els.edgeMargin.value;
+    els.exclFeather.value = els.edgeFeather.value;
+    els.exclExp.value = els.edgeExp.value;
+  }
+}
+
+// Slot flip button
+els.slotFlipBtn.addEventListener('click', function() {
+  var cur = numVal(els.slotAngle, 45);
+  els.slotAngle.value = cur + 90;
+  regenerateNow();
+});
+
+// Slot fill toggle disables length input
+els.slotFill.addEventListener('change', function() {
+  els.slotLength.disabled = els.slotFill.checked;
+  debouncedRegen();
+});
 
 // Shape picker button wiring
 var shapeBtns = document.querySelectorAll('.shape-btn');
@@ -1376,8 +1787,17 @@ var paramInputs = [
   els.edgeMargin, els.edgeFeather, els.edgeExp,
   els.exclBuffer, els.exclFeather, els.exclExp,
   els.radialEnable, els.radialStart, els.radialEnd, els.radialExp,
-  els.svgFilename
+  els.svgFilename,
+  els.slotWidth, els.slotMinWidth, els.slotLength, els.slotSpacing,
+  els.slotAngle, els.slotTaperDist, els.slotTaperExp
 ];
+
+// When panel edge inputs change, sync exclusion if needed
+['input', 'change'].forEach(function(evt) {
+  els.edgeMargin.addEventListener(evt, syncExclusionIfNeeded);
+  els.edgeFeather.addEventListener(evt, syncExclusionIfNeeded);
+  els.edgeExp.addEventListener(evt, syncExclusionIfNeeded);
+});
 var radioInputs = document.querySelectorAll('input[name="orientation"], input[name="outputMode"]');
 paramInputs.forEach(function(el) { el.addEventListener('input', debouncedRegen); el.addEventListener('change', debouncedRegen); });
 radioInputs.forEach(function(el) { el.addEventListener('change', debouncedRegen); });
@@ -1399,9 +1819,14 @@ els.btnDebug.addEventListener('click', function() {
 
 els.btnDownloadDxf.addEventListener('click', function() {
   if (state.lastCells.length === 0) return;
-  var shape = els.cellShape.value;
-  var dxfOut = buildOutputDXF(state.lastCells, shape);
   var base = els.svgFilename.value.trim().replace(/\.(svg|dxf)$/i, '') || 'honeycomb';
+  var dxfOut;
+  if (currentMode === 'slots' && state.lastSlots) {
+    dxfOut = buildSlotDXF(state.lastSlots);
+  } else {
+    var shape = els.cellShape.value;
+    dxfOut = buildOutputDXF(state.lastCells, shape);
+  }
   downloadString(dxfOut, base + '.dxf', 'application/dxf');
 });
 
@@ -1464,13 +1889,7 @@ function regenerateNow() {
     msgs.push({ type: 'info', text: 'No exclusion zones found. Honeycomb will cover the full panel.' });
   }
 
-  // Read parameters
-  var nomSize = numVal(els.nominalSize, 8);
-  var minSize = numVal(els.minSize, 1.5);
-  var webW = numVal(els.webWidth, 1.5);
-  var rotDeg = numVal(els.cellRotation, 0);
-  var orient = getOrientation();
-  var shape = els.cellShape.value;
+  // Read common parameters
   var edgeM = numVal(els.edgeMargin, 3);
   var edgeF = numVal(els.edgeFeather, 5);
   var edgeE = numVal(els.edgeExp, 1);
@@ -1482,80 +1901,175 @@ function regenerateNow() {
   var radEnd = numVal(els.radialEnd, 100);
   var radE = numVal(els.radialExp, 1);
   var mode = getOutputMode();
-
-  // Generate cell grid (shape-aware)
   var bbox = bboxOf(state.panelCoords);
-  var centers = generateCellCenters(bbox, nomSize, webW, rotDeg, shape, orient);
 
-  // Filter and scale cells
-  var cells = [];
-  for (var i = 0; i < centers.length; i++) {
-    var px = centers[i][0], py = centers[i][1];
-    var dir = centers[i][2] || 1;   // triangle orientation (1=up, -1=down)
+  if (currentMode === 'slots') {
+    // ---- SLOT MODE ----
+    var slotW = numVal(els.slotWidth, 3);
+    var slotMinW = numVal(els.slotMinWidth, 1);
+    var slotLen = numVal(els.slotLength, 40);
+    var slotSpc = numVal(els.slotSpacing, 6);
+    var slotAng = numVal(els.slotAngle, 45);
+    var slotFill = els.slotFill.checked;
+    var taperDist = numVal(els.slotTaperDist, 30);
+    var taperExp = numVal(els.slotTaperExp, 1.5);
 
-    // Must be inside panel
-    if (!pointInPoly(px, py, state.panelGeoJSON)) continue;
+    var rawSlots = generateSlotCenterlines(bbox, state.centroid, slotAng, slotSpc, slotLen, slotFill, state.panelCoords, state.panelGeoJSON, edgeM);
 
-    // Edge fade
-    var eScale = edgeScale(px, py, state.panelCoords, edgeM, edgeF, edgeE);
-    if (eScale < 0) continue;
+    var slots = [];
+    for (var i = 0; i < rawSlots.length; i++) {
+      var s = rawSlots[i];
 
-    // Exclusion fade
-    var xScale = 1.0;
-    if (state.exclusionCoords.length > 0) {
-      xScale = exclusionScale(px, py, state.exclusionCoords, state.exclusionGeoJSON, exclB, exclF, exclE);
-      if (xScale < 0) continue;
+      // Taper: width reduces based on perpendicular distance from centroid
+      var taperScale = 1.0;
+      if (taperDist > 0 && s.perpDist > 0) {
+        var t = Math.min(1, s.perpDist / taperDist);
+        taperScale = 1.0 - Math.pow(t, taperExp);
+      }
+
+      // Also apply edge/exclusion/radial fade at slot center
+      var eS = edgeScale(s.cx, s.cy, state.panelCoords, edgeM, edgeF, edgeE);
+      if (eS < 0) continue;
+      var xS = 1.0;
+      if (state.exclusionCoords.length > 0) {
+        xS = exclusionScale(s.cx, s.cy, state.exclusionCoords, state.exclusionGeoJSON, exclB, exclF, exclE);
+        if (xS < 0) continue;
+      }
+      var rS = 1.0;
+      if (radOn) {
+        rS = radialScale(s.cx, s.cy, state.centroid, radS, radEnd, radE);
+        if (rS < 0) continue;
+      }
+
+      var finalScale = Math.min(taperScale, eS, xS, rS);
+      var finalW = slotW * finalScale;
+      if (finalW < slotMinW) continue;
+
+      // Must be inside panel
+      if (!pointInPoly(s.cx, s.cy, state.panelGeoJSON)) continue;
+
+      // Clip slot endpoints to panel boundary
+      var clipped = clipSlotToPanel(s.x1, s.y1, s.x2, s.y2, state.panelCoords, state.panelGeoJSON, edgeM, state.exclusionCoords, state.exclusionGeoJSON, exclB);
+      if (!clipped) continue;
+
+      var verts = capsuleVertices(s.cx, s.cy, clipped.x1, clipped.y1, clipped.x2, clipped.y2, finalW);
+      slots.push({
+        cx: s.cx, cy: s.cy,
+        x1: clipped.x1, y1: clipped.y1, x2: clipped.x2, y2: clipped.y2,
+        width: finalW, vertices: verts
+      });
     }
 
-    // Radial fade
-    var rScale = 1.0;
-    if (radOn) {
-      rScale = radialScale(px, py, state.centroid, radS, radEnd, radE);
-      if (rScale < 0) continue;
+    state.lastCells = slots;
+    state.lastSlots = slots;
+
+    if (slots.length === 0) {
+      msgs.push({ type: 'error', text: 'No slots generated. Try adjusting spacing, angle, or taper settings.' });
     }
 
-    var finalScale = Math.min(eScale, xScale, rScale);
-    var finalSize = nomSize * finalScale;
-    if (finalSize < minSize) continue;
+    state.lastSvg = buildOutputSVG(slots, state.panelCoords, bbox, mode);
+    var preview = buildPreviewSVG(slots, state.panelCoords, state.exclusionCoords, bbox, mode);
+    els.previewSvg.setAttribute('viewBox', preview.vbX.toFixed(4) + ' ' + preview.vbY.toFixed(4) + ' ' + preview.vbW.toFixed(4) + ' ' + preview.vbH.toFixed(4));
+    els.previewSvg.innerHTML = preview.inner;
+    els.previewSvg.style.display = '';
+    els.placeholder.style.display = 'none';
 
-    var verts = cellVertices(px, py, finalSize, rotDeg, shape, orient, dir);
-    cells.push({ cx: px, cy: py, size: finalSize, vertices: verts });
+    // Stats for slots
+    var panelA = polygonArea(state.panelCoords);
+    var totalSlotArea = 0;
+    var minW = Infinity, maxW = -Infinity;
+    for (var i = 0; i < slots.length; i++) {
+      var sw = slots[i].width;
+      var dx = slots[i].x2 - slots[i].x1, dy = slots[i].y2 - slots[i].y1;
+      var sLen = Math.sqrt(dx * dx + dy * dy);
+      totalSlotArea += sw * sLen + Math.PI * (sw / 2) * (sw / 2);
+      if (sw < minW) minW = sw;
+      if (sw > maxW) maxW = sw;
+    }
+    var openPct = panelA > 0 ? (totalSlotArea / panelA * 100) : 0;
+    els.statCount.textContent = slots.length.toLocaleString();
+    els.statOpenArea.textContent = openPct.toFixed(1) + '%';
+    els.statMinSize.textContent = slots.length > 0 ? minW.toFixed(2) + ' mm' : '—';
+    els.statMaxSize.textContent = slots.length > 0 ? maxW.toFixed(2) + ' mm' : '—';
+    els.statPanelArea.textContent = panelA.toFixed(1) + ' mm²';
+
+    els.btnDownload.disabled = slots.length === 0;
+    els.btnDownloadDxf.disabled = slots.length === 0;
+    els.btnDebug.disabled = !state.panelCoords;
+
+  } else {
+    // ---- CELL MODE ----
+    var nomSize = numVal(els.nominalSize, 8);
+    var minSize = numVal(els.minSize, 1.5);
+    var webW = numVal(els.webWidth, 1.5);
+    var rotDeg = numVal(els.cellRotation, 0);
+    var orient = getOrientation();
+    var shape = els.cellShape.value;
+
+    var centers = generateCellCenters(bbox, nomSize, webW, rotDeg, shape, orient);
+
+    var cells = [];
+    for (var i = 0; i < centers.length; i++) {
+      var px = centers[i][0], py = centers[i][1];
+      var dir = centers[i][2] || 1;
+
+      if (!pointInPoly(px, py, state.panelGeoJSON)) continue;
+
+      var eScale = edgeScale(px, py, state.panelCoords, edgeM, edgeF, edgeE);
+      if (eScale < 0) continue;
+
+      var xScale = 1.0;
+      if (state.exclusionCoords.length > 0) {
+        xScale = exclusionScale(px, py, state.exclusionCoords, state.exclusionGeoJSON, exclB, exclF, exclE);
+        if (xScale < 0) continue;
+      }
+
+      var rScale = 1.0;
+      if (radOn) {
+        rScale = radialScale(px, py, state.centroid, radS, radEnd, radE);
+        if (rScale < 0) continue;
+      }
+
+      var finalScale = Math.min(eScale, xScale, rScale);
+      var finalSize = nomSize * finalScale;
+      if (finalSize < minSize) continue;
+
+      var verts = cellVertices(px, py, finalSize, rotDeg, shape, orient, dir);
+      cells.push({ cx: px, cy: py, size: finalSize, vertices: verts });
+    }
+
+    state.lastCells = cells;
+    state.lastSlots = null;
+
+    if (cells.length === 0) {
+      msgs.push({ type: 'error', text: 'No cells generated. Try increasing nominal cell size, reducing edge margin, or reducing feathering distances.' });
+    }
+    if (cells.length > 10000) {
+      msgs.push({ type: 'warn', text: 'Large cell count (' + cells.length + ') may affect Fusion 360 import performance.' });
+    }
+
+    state.lastSvg = buildOutputSVG(cells, state.panelCoords, bbox, mode);
+    var preview = buildPreviewSVG(cells, state.panelCoords, state.exclusionCoords, bbox, mode);
+    els.previewSvg.setAttribute('viewBox', preview.vbX.toFixed(4) + ' ' + preview.vbY.toFixed(4) + ' ' + preview.vbW.toFixed(4) + ' ' + preview.vbH.toFixed(4));
+    els.previewSvg.innerHTML = preview.inner;
+    els.previewSvg.style.display = '';
+    els.placeholder.style.display = 'none';
+
+    var stats = computeStats(cells, state.panelCoords, state.exclusionCoords, shape);
+    els.statCount.textContent = stats.count.toLocaleString();
+    els.statOpenArea.textContent = stats.openArea.toFixed(1) + '%';
+    els.statMinSize.textContent = stats.minSize.toFixed(2) + ' mm';
+    els.statMaxSize.textContent = stats.maxSize.toFixed(2) + ' mm';
+    els.statPanelArea.textContent = stats.panelArea.toFixed(1) + ' mm²';
+
+    if (stats.outsideExclusions > 0) {
+      msgs.push({ type: 'info', text: stats.outsideExclusions + ' exclusion zone(s) outside panel boundary (ignored).' });
+    }
+
+    els.btnDownload.disabled = cells.length === 0;
+    els.btnDownloadDxf.disabled = cells.length === 0;
+    els.btnDebug.disabled = !state.panelCoords;
   }
-
-  state.lastCells = cells;
-
-  // Warnings
-  if (cells.length === 0) {
-    msgs.push({ type: 'error', text: 'No cells generated. Try increasing nominal cell size, reducing edge margin, or reducing feathering distances.' });
-  }
-  if (cells.length > 10000) {
-    msgs.push({ type: 'warn', text: 'Large cell count (' + cells.length + ') may affect Fusion 360 import performance.' });
-  }
-
-  // Generate SVGs
-  state.lastSvg = buildOutputSVG(cells, state.panelCoords, bbox, mode);
-
-  var preview = buildPreviewSVG(cells, state.panelCoords, state.exclusionCoords, bbox, mode);
-  els.previewSvg.setAttribute('viewBox', preview.vbX.toFixed(4) + ' ' + preview.vbY.toFixed(4) + ' ' + preview.vbW.toFixed(4) + ' ' + preview.vbH.toFixed(4));
-  els.previewSvg.innerHTML = preview.inner;
-  els.previewSvg.style.display = '';
-  els.placeholder.style.display = 'none';
-
-  // Stats
-  var stats = computeStats(cells, state.panelCoords, state.exclusionCoords, shape);
-  els.statCount.textContent = stats.count.toLocaleString();
-  els.statOpenArea.textContent = stats.openArea.toFixed(1) + '%';
-  els.statMinSize.textContent = stats.minSize.toFixed(2) + ' mm';
-  els.statMaxSize.textContent = stats.maxSize.toFixed(2) + ' mm';
-  els.statPanelArea.textContent = stats.panelArea.toFixed(1) + ' mm²';
-
-  if (stats.outsideExclusions > 0) {
-    msgs.push({ type: 'info', text: stats.outsideExclusions + ' exclusion zone(s) outside panel boundary (ignored).' });
-  }
-
-  els.btnDownload.disabled = cells.length === 0;
-  els.btnDownloadDxf.disabled = cells.length === 0;
-  els.btnDebug.disabled = !state.panelCoords;
 
   showMessages(msgs);
 }
