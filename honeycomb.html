@@ -8,11 +8,19 @@
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; height: 100vh; overflow: hidden; color: #333; font-size: 13px; }
 
 .controls {
-  width: 370px; min-width: 370px; overflow-y: auto; padding: 16px;
+  width: 300px; min-width: 300px; overflow-y: auto; padding: 12px;
   border-right: 1px solid #ddd; background: #fafafa;
 }
 .controls h2 { font-size: 16px; margin-bottom: 12px; color: #111; }
-.controls h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin: 14px 0 8px; }
+.controls h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin: 14px 0 8px; display: flex; align-items: center; gap: 6px; }
+.section-reset {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 50%; background: transparent;
+  border: none; color: #bbb; cursor: pointer; padding: 0; margin-left: auto;
+  transition: color 0.15s, background 0.15s;
+}
+.section-reset:hover { color: #1976d2; background: #e3f2fd; }
+.section-reset svg { width: 12px; height: 12px; display: block; }
 .controls hr { border: none; border-top: 1px solid #e0e0e0; margin: 12px 0; }
 .controls label { display: block; font-size: 12px; margin: 6px 0 2px; color: #555; }
 .controls input[type=number], .controls input[type=text], .controls select {
@@ -27,8 +35,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .check-group label { display: inline; margin: 0; cursor: pointer; }
 .check-group input { margin-right: 3px; vertical-align: middle; }
 
-.stats { background: #f0f0f0; border-radius: 4px; padding: 10px; margin: 12px 0; font-size: 12px; line-height: 1.8; }
-.stats span { font-weight: 600; color: #111; }
 
 .buttons { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .buttons button {
@@ -44,24 +50,183 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .msg.warn { background: #fff8e1; color: #795548; border: 1px solid #ffe082; }
 .msg.info { background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
 
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; position: relative; }
+.version-badge {
+  position: absolute; top: 10px; right: 14px; z-index: 5;
+  font-size: 10px; font-weight: 600; color: #999;
+  background: rgba(255,255,255,0.6); padding: 2px 7px; border-radius: 3px;
+  letter-spacing: 0.3px; pointer-events: none;
+}
 .preview {
   flex: 1; display: flex; align-items: center; justify-content: center;
   background: #e8e8e8; overflow: auto; position: relative; padding: 20px;
 }
+.stats-bar {
+  display: flex; align-items: center; gap: 24px; padding: 8px 20px;
+  background: #ececec; border-top: 1px solid #d5d5d5;
+  font-size: 12px; color: #555;
+  overflow-x: auto; white-space: nowrap; flex-shrink: 0;
+}
+.stats-item b { color: #111; font-weight: 600; margin-left: 4px; }
 #previewSvg { max-width: 100%; max-height: 100%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 #placeholder { color: #999; font-size: 15px; }
 
-.shape-picker { display: flex; gap: 6px; margin: 6px 0; flex-wrap: wrap; }
+.dropzone {
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  border: 2px dashed #90caf9; border-radius: 10px;
+  background: #fff; color: #333; padding: 60px 40px; text-align: center;
+  min-width: 320px; max-width: 520px;
+}
+.dropzone.visible { display: flex; }
+.dropzone-icon { width: 40px; height: 40px; margin-bottom: 14px; color: #555; }
+.dropzone-title { font-size: 16px; font-weight: 700; letter-spacing: 0.3px; margin-bottom: 8px; }
+.dropzone-title .upload-link { color: #1976d2; cursor: pointer; }
+.dropzone-title .upload-link:hover { text-decoration: underline; }
+.dropzone-types { font-size: 13px; color: #666; }
+
+.preview.drop-active { background: #d7eafd; }
+.preview.drop-active .dropzone { border-color: #1976d2; background: #f0f8ff; }
+
+.compact-toggle {
+  position: fixed; top: 14px; left: 300px; z-index: 20;
+  width: 22px; height: 40px; padding: 0;
+  border: 1px solid #ddd; border-left: none; border-radius: 0 5px 5px 0;
+  background: #fafafa; color: #666; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: left 0.2s;
+}
+.compact-toggle:hover { background: #eee; color: #333; }
+.compact-toggle svg { width: 12px; height: 12px; }
+body.compact .controls { width: 0; min-width: 0; padding: 0; overflow: hidden; border-right: none; }
+body.compact .compact-toggle { left: 0; }
+
+.shape-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 6px 0; }
 .shape-btn {
-  width: 56px; height: 56px; border: 2px solid #ccc; border-radius: 6px;
-  background: #fff; cursor: pointer; padding: 4px; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 2px; transition: all 0.15s;
+  height: 48px; border: 2px solid #ccc; border-radius: 6px;
+  background: #fff; cursor: pointer; padding: 4px 8px; display: flex;
+  align-items: center; justify-content: center; gap: 4px; transition: all 0.15s;
 }
 .shape-btn:hover { border-color: #888; background: #f5f5f5; }
 .shape-btn.active { border-color: #333; background: #e8e8e8; }
-.shape-btn svg { width: 28px; height: 28px; }
-.shape-btn span { font-size: 9px; color: #666; line-height: 1; white-space: nowrap; }
+.shape-btn svg { width: 22px; height: 22px; flex-shrink: 0; }
+.shape-btn span { font-size: 11px; color: #666; line-height: 1; white-space: nowrap; }
 .shape-btn.active span { color: #111; font-weight: 600; }
+
+.file-banner {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  padding: 4px 14px; font-size: 15px; font-weight: 600; color: #555;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 80%; z-index: 1;
+}
+.file-banner.empty { color: #999; font-weight: 400; font-style: italic; }
+
+.pattern-save-btn {
+  width: 100%; padding: 7px; background: #1976d2; color: #fff;
+  border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;
+  margin-top: 4px;
+}
+.pattern-save-btn:hover { background: #1565c0; }
+.patterns-list { max-height: 220px; overflow-y: auto; margin-top: 8px; }
+.patterns-empty {
+  padding: 10px 8px; text-align: center; color: #999;
+  font-size: 11px; font-style: italic; line-height: 1.4;
+}
+.pattern-item {
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px 5px; margin: 2px 0;
+  border: 1px solid #ddd; border-radius: 3px;
+  background: #fff; font-size: 11px; min-height: 26px;
+}
+.pattern-item.active { border-color: #1976d2; background: #e3f2fd; }
+.pattern-item-shape {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.4px;
+  color: #888; background: #f0f0f0; padding: 1px 5px; border-radius: 2px;
+  flex-shrink: 0; font-weight: 600;
+}
+.pattern-item.active .pattern-item-shape { background: #bbdefb; color: #1565c0; }
+.pattern-item-name {
+  flex: 1; cursor: pointer; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-weight: 500; color: #222; min-width: 0;
+}
+.pattern-item-name:hover { color: #1565c0; }
+.pattern-modified {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #ff9800; flex-shrink: 0;
+}
+.pattern-item-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.pattern-action {
+  width: 22px; height: 22px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid #ddd; border-radius: 3px;
+  background: #fafafa; cursor: pointer; color: #666;
+}
+.pattern-action:hover { background: #eee; border-color: #999; color: #222; }
+.pattern-action.primary { background: #1976d2; color: #fff; border-color: #1565c0; }
+.pattern-action.primary:hover { background: #1565c0; color: #fff; }
+.pattern-action.danger:hover { background: #ffebee; border-color: #ef9a9a; color: #b71c1c; }
+.pattern-action svg { width: 12px; height: 12px; display: block; pointer-events: none; }
+
+.slider-row { display: flex; align-items: center; gap: 8px; }
+.slider-row input[type="range"] { flex: 1; min-width: 0; }
+.slider-row input[type="number"] { width: 64px; flex-shrink: 0; }
+
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  height: 4px; background: transparent; outline: none;
+  padding: 0; margin: 4px 0;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px; background: #d0d0d0; border-radius: 2px;
+}
+input[type="range"]::-moz-range-track {
+  height: 4px; background: #d0d0d0; border-radius: 2px; border: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #555; cursor: pointer; margin-top: -5px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #555; cursor: pointer; border: none;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+input[type="range"]:hover::-webkit-slider-thumb { background: #333; }
+input[type="range"]:hover::-moz-range-thumb { background: #333; }
+input[type="range"]:disabled::-webkit-slider-thumb { background: #bbb; cursor: default; }
+input[type="range"]:disabled::-moz-range-thumb { background: #bbb; cursor: default; }
+
+.panel-dimensions {
+  font-size: 11px; color: #666; padding: 4px 2px 0;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+}
+.panel-dimensions.empty { color: #bbb; font-style: italic; font-family: inherit; }
+
+.unit-row { display: flex; align-items: center; gap: 8px; }
+.unit-row select { flex: 1; min-width: 0; }
+.unit-badge {
+  display: none; padding: 3px 8px; border-radius: 3px; font-size: 11px;
+  font-weight: 500; background: #e3f2fd; color: #1565c0;
+  border: 1px solid #90caf9; white-space: nowrap; flex-shrink: 0;
+}
+.unit-badge.visible { display: inline-block; }
+
+.info-tip {
+  display: inline-block; width: 14px; height: 14px; border-radius: 50%;
+  background: #d5d5d5; color: #555; font-size: 10px; font-weight: 700;
+  text-align: center; line-height: 14px; margin-left: 5px; cursor: help;
+  font-family: Georgia, serif; font-style: italic; vertical-align: middle;
+  position: relative; user-select: none;
+}
+.info-tip:hover { background: #c8e0f4; color: #1565c0; }
+#globalTooltip {
+  position: fixed; display: none; z-index: 1000; pointer-events: none;
+  background: #333; color: #fff; padding: 7px 10px; border-radius: 4px;
+  font-size: 11px; font-weight: 400; font-style: normal;
+  max-width: 280px; line-height: 1.45;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+}
 
 .sync-row {
   display: flex; align-items: center; gap: 6px; margin: 2px 0 6px;
@@ -93,22 +258,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 </head>
 <body>
 
+<div id="globalTooltip"></div>
+
 <div class="controls">
   <h2>Honeycomb Generator</h2>
 
   <h3>File Input</h3>
-  <label>DXF file</label>
+  <label>DXF file <span class="info-tip" data-tip="The panel outline DXF exported from your CAD tool. The outer profile becomes the panel; any closed inner shapes become exclusion zones (cutouts).">i</span></label>
   <input type="file" id="dxfFile" accept=".dxf">
-  <label>DXF unit override</label>
-  <select id="unitOverride">
-    <option value="auto">Auto-detect</option>
-    <option value="mm">Force mm</option>
-    <option value="inches">Force inches</option>
-  </select>
+  <label>DXF unit <span class="info-tip" data-tip="Interpret the DXF's coordinate values as this unit. Auto-detect reads the file's $INSUNITS header (falls back to mm if missing).">i</span></label>
+  <div class="unit-row">
+    <select id="unitOverride">
+      <option value="auto">Auto-detect</option>
+      <option value="mm">Force mm</option>
+      <option value="inches">Force inches</option>
+    </select>
+    <span id="detectedUnitBadge" class="unit-badge"></span>
+  </div>
+  <div id="panelDimensions" class="panel-dimensions empty">Dimensions: —</div>
   <hr>
 
-  <h3>Cell Geometry</h3>
-  <label>Cell shape</label>
+  <h3>Cell Shape <span class="info-tip" data-tip="The perforation unit shape. Hex/Triangle/Square/Diamond/Circle tile as a repeating grid. Slot is a long capsule repeated in parallel ranks.">i</span></h3>
   <div class="shape-picker" id="shapePicker">
     <button type="button" class="shape-btn active" data-shape="hexagon">
       <svg viewBox="0 0 30 30"><polygon points="15,2 26.2,8.5 26.2,21.5 15,28 3.8,21.5 3.8,8.5" fill="none" stroke="#444" stroke-width="2"/></svg>
@@ -136,103 +306,109 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     </button>
   </div>
   <input type="hidden" id="cellShape" value="hexagon">
+  <hr>
 
+  <h3>Patterns <span class="info-tip" data-tip="Saved snapshots of your settings (pattern only — not the DXF). Load, duplicate, rename, or delete. Presets persist across page refreshes.">i</span></h3>
+  <button type="button" id="savePatternBtn" class="pattern-save-btn">+ Save current pattern</button>
+  <div id="patternsList" class="patterns-list"></div>
+  <hr>
+
+  <h3 data-reset="cellGeometry">Cell Geometry</h3>
   <div id="cellSizeControls">
-  <label id="nominalSizeLabel">Nominal cell size — flat-to-flat (mm)</label>
+  <label id="nominalSizeLabel">Cell size — flat-to-flat (mm) <span class="info-tip" data-tip="Target size of each cell in the interior of the panel, before any fades are applied.">i</span></label>
   <input type="number" id="nominalSize" value="3.5" step="0.1" min="0.1">
-  <label>Minimum cell size (mm)</label>
+  <label>Minimum cell size (mm) <span class="info-tip" data-tip="Smallest cell allowed in the output. Cells shrunk below this by edge/exclusion/radial fades are dropped from the pattern.">i</span></label>
   <input type="number" id="minSize" value="1.5" step="0.1" min="0.1">
-  <label>Web width (mm)</label>
+  <label>Wall thickness (mm) <span class="info-tip" data-tip="Thickness of the wall between adjacent cells. Larger = stronger panel but less open area.">i</span></label>
   <input type="number" id="webWidth" value="1.5" step="0.1" min="0.1">
   <div id="orientationGroup">
-    <label>Cell orientation</label>
+    <label>Cell orientation <span class="info-tip" data-tip="Hex tiling only. Flat-top rests on a horizontal edge; pointy-top rests on a vertex.">i</span></label>
     <div class="radio-group">
       <label><input type="radio" name="orientation" value="flat" checked> Flat-top</label>
       <label><input type="radio" name="orientation" value="pointy"> Pointy-top</label>
     </div>
   </div>
-  <label>Cell rotation (deg)</label>
+  <label>Cell rotation (deg) <span class="info-tip" data-tip="Rotates the entire tiling grid inside the panel.">i</span></label>
   <input type="number" id="cellRotation" value="0" step="1">
   </div>
 
   <div id="slotControls" style="display:none;">
-  <label>Slot width (mm)</label>
+  <label>Slot width (mm) <span class="info-tip" data-tip="Width of a slot at its widest point (at the panel center). Slots taper narrower toward the panel edges.">i</span></label>
   <input type="number" id="slotWidth" value="3" step="0.1" min="0.1">
-  <label>Minimum slot width (mm)</label>
+  <label>Minimum slot width (mm) <span class="info-tip" data-tip="Slots that would fall below this width (via taper or fades) are dropped from the pattern.">i</span></label>
   <input type="number" id="slotMinWidth" value="1" step="0.1" min="0.1">
-  <label>Slot length (mm)</label>
+  <label>Slot length (mm) <span class="info-tip" data-tip="Length of each slot when Fill is off. Ignored when Fill is on.">i</span></label>
   <div style="display:flex; gap:6px; align-items:center;">
-    <input type="number" id="slotLength" value="40" step="1" min="1" style="flex:1;">
+    <input type="number" id="slotLength" value="41" step="1" min="1" style="flex:1;">
     <div class="check-group" style="margin:0; white-space:nowrap;">
-      <label><input type="checkbox" id="slotFill"> Fill</label>
+      <label title="Extend each slot along its axis until it touches the panel boundary (respecting edge margin)."><input type="checkbox" id="slotFill" checked> Fill</label>
     </div>
   </div>
-  <label>Slot spacing (mm)</label>
-  <input type="number" id="slotSpacing" value="6" step="0.5" min="0.5">
-  <label>Slot angle (deg)</label>
+  <label>Gap between slots (mm) <span class="info-tip" data-tip="Edge-to-edge white space between neighboring slots. Stays constant regardless of how wide the slots are — so wider slots sit farther center-to-center, thinner slots pack in closer.">i</span></label>
+  <input type="number" id="slotSpacing" value="8.1" step="0.5" min="0.1">
+  <label>Slot angle (deg) <span class="info-tip" data-tip="Direction the slots run. 0° = horizontal, 45° = diagonal (SW–NE), 90° = vertical.">i</span></label>
   <div style="display:flex; gap:6px; align-items:center;">
     <input type="number" id="slotAngle" value="45" step="1" style="flex:1;">
     <button type="button" class="flip-btn" id="slotFlipBtn">Flip 90&deg;</button>
   </div>
-  <label>Taper distance (mm)</label>
-  <input type="number" id="slotTaperDist" value="30" step="1" min="0">
-  <label>Taper exponent</label>
-  <input type="number" id="slotTaperExp" value="1.5" step="0.1" min="0.1">
+  <label>Slot width taper distance (mm) <span class="info-tip" data-tip="Perpendicular distance from the panel center over which each slot's WIDTH shrinks from full to zero. Larger = gentler taper, slots stay fatter further out from center.">i</span></label>
+  <div class="slider-row">
+    <input type="range" id="slotTaperDistSlider" min="0" max="300" step="1" value="300">
+    <input type="number" id="slotTaperDist" value="300" step="1" min="0">
+  </div>
+  <label>Slot width taper exponent <span class="info-tip" data-tip="Shape of the width-taper curve. 1 = linear falloff. Higher values = flat middle region then a quick shrink at the outer ranks.">i</span></label>
+  <div class="slider-row">
+    <input type="range" id="slotTaperExpSlider" min="0.1" max="10" step="0.1" value="10">
+    <input type="number" id="slotTaperExp" value="10" step="0.1" min="0.1">
+  </div>
   </div>
   <hr>
 
-  <h3>Panel Edge Treatment</h3>
-  <label>Edge margin (mm)</label>
-  <input type="number" id="edgeMargin" value="3" step="0.5" min="0">
-  <label>Edge feathering distance (mm)</label>
-  <input type="number" id="edgeFeather" value="11.5" step="0.5" min="0">
-  <label>Edge fade exponent</label>
+  <h3 data-reset="edge">Panel Edge Treatment</h3>
+  <label>Edge margin (mm) <span class="info-tip" data-tip="Hard minimum clearance every cell or slot must keep from the panel outline. Anything closer is clipped away.">i</span></label>
+  <input type="number" id="edgeMargin" value="4" step="0.5" min="0">
+  <label id="edgeFeatherLabel">Edge feathering distance (mm) <span class="info-tip" data-tip="Fade band immediately inside the margin where cells shrink smoothly toward zero. Ignored in slot mode (the width taper handles the same job).">i</span></label>
+  <input type="number" id="edgeFeather" value="14.5" step="0.5" min="0">
+  <label id="edgeExpLabel">Edge fade exponent <span class="info-tip" data-tip="Steepness of the edge-fade curve. 1 = linear falloff, higher = flat interior then quick fade near the edge.">i</span></label>
   <input type="number" id="edgeExp" value="2.0" step="0.1" min="0.1">
   <hr>
 
-  <h3>Exclusion Zone Treatment</h3>
+  <h3 data-reset="exclusion">Exclusion Zones</h3>
   <div class="sync-row">
     <label class="sync-toggle"><input type="checkbox" id="syncExclusion"><span class="slider"></span></label>
     <span class="sync-label" id="syncLabel">Sync with panel edge</span>
+    <span class="info-tip" data-tip="When on, the three exclusion controls below mirror the panel-edge values above. Turn off to set them independently.">i</span>
   </div>
-  <label>Structural buffer (mm)</label>
+  <label>Exclusion buffer (mm) <span class="info-tip" data-tip="Hard minimum clearance around each exclusion zone. Anything closer is clipped away.">i</span></label>
   <input type="number" id="exclBuffer" value="3" step="0.5" min="0">
-  <label>Feathering distance (mm)</label>
+  <label>Feathering distance (mm) <span class="info-tip" data-tip="Fade band outside the buffer where cells shrink smoothly toward zero around the exclusion zone.">i</span></label>
   <input type="number" id="exclFeather" value="5" step="0.5" min="0">
-  <label>Fade exponent</label>
+  <label>Fade exponent <span class="info-tip" data-tip="Steepness of the exclusion-fade curve. 1 = linear, higher = flat then quick fade near the zone.">i</span></label>
   <input type="number" id="exclExp" value="2.0" step="0.1" min="0.1">
   <hr>
 
-  <h3>Center-Radial Fade</h3>
+  <h3 data-reset="radial">Center-Radial Fade</h3>
   <div class="check-group">
     <label><input type="checkbox" id="radialEnable"> Enable radial fade</label>
+    <span class="info-tip" data-tip="Optional: shrink cells based on distance from the panel centroid. Handy for spotlight-style patterns that are dense in the middle and sparse toward the corners.">i</span>
   </div>
-  <label>Start radius (mm)</label>
+  <label>Inner radius (mm) <span class="info-tip" data-tip="Radius from centroid inside which cells stay at full size (fade doesn't kick in yet).">i</span></label>
   <input type="number" id="radialStart" value="0" step="1" min="0" disabled>
-  <label>End radius (mm)</label>
+  <label>Outer radius (mm) <span class="info-tip" data-tip="Radius beyond which cells are fully faded (dropped from the pattern).">i</span></label>
   <input type="number" id="radialEnd" value="100" step="1" min="0" disabled>
-  <label>Fade exponent</label>
+  <label>Fade exponent <span class="info-tip" data-tip="Steepness of the radial-fade curve between Start and End radius. 1 = linear.">i</span></label>
   <input type="number" id="radialExp" value="1.0" step="0.1" min="0.1" disabled>
   <hr>
 
-  <h3>Output</h3>
-  <label>Output mode</label>
+  <h3 data-reset="output">Output</h3>
+  <label>Output mode <span class="info-tip" data-tip="Holes only = each perforation as its own closed path. Inverse = a single path with evenodd fill (panel minus holes), useful for some CAD workflows.">i</span></label>
   <div class="radio-group">
     <label><input type="radio" name="outputMode" value="holes" checked> Holes only</label>
     <label><input type="radio" name="outputMode" value="inverse"> Inverse (evenodd)</label>
   </div>
-  <label>Base filename</label>
-  <input type="text" id="svgFilename" value="honeycomb">
+  <label>Base filename <span class="info-tip" data-tip="Filename stem used when downloading DXF or SVG output.">i</span></label>
+  <input type="text" id="svgFilename" value="HONEYCOMBED-honeycomb">
   <hr>
-
-  <h3>Live Stats</h3>
-  <div class="stats" id="statsPanel">
-    Total cells: <span id="statCount">—</span><br>
-    Open area: <span id="statOpenArea">—</span><br>
-    Smallest cell: <span id="statMinSize">—</span><br>
-    Largest cell: <span id="statMaxSize">—</span><br>
-    Panel area: <span id="statPanelArea">—</span>
-  </div>
 
   <div class="buttons">
     <button id="btnDownloadDxf" disabled>Download DXF</button>
@@ -243,9 +419,29 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   <div id="messages"></div>
 </div>
 
-<div class="preview">
-  <span id="placeholder">Upload a DXF file to begin</span>
-  <svg id="previewSvg" style="display:none;" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="main">
+  <div class="version-badge">v1.01</div>
+  <div class="preview">
+    <div class="file-banner empty" id="fileBanner">No file loaded</div>
+    <div id="placeholder" class="dropzone visible">
+      <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <polyline points="9 15 12 12 15 15"/>
+      </svg>
+      <div class="dropzone-title">DROP FILE OR <span class="upload-link" id="uploadLink">UPLOAD</span></div>
+      <div class="dropzone-types">.dxf</div>
+    </div>
+    <svg id="previewSvg" style="display:none;" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+  <div class="stats-bar" id="statsBar">
+    <span class="stats-item">Total cells: <b id="statCount">—</b></span>
+    <span class="stats-item">Open area: <b id="statOpenArea">—</b></span>
+    <span class="stats-item">Smallest cell: <b id="statMinSize">—</b></span>
+    <span class="stats-item">Largest cell: <b id="statMaxSize">—</b></span>
+    <span class="stats-item">Panel area: <b id="statPanelArea">—</b></span>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/dxf-parser@1.1.2/dist/dxf-parser.js"></script>
@@ -355,18 +551,18 @@ function pointInPoly(px, py, turfPoly) {
 // ============================================================
 
 function getUnitScale(dxf, override) {
-  if (override === 'mm') return { scale: 1, warning: null };
-  if (override === 'inches') return { scale: 25.4, warning: null };
+  if (override === 'mm') return { scale: 1, warning: null, unitLabel: 'mm' };
+  if (override === 'inches') return { scale: 25.4, warning: null, unitLabel: 'inches' };
   var units = dxf.header && dxf.header['$INSUNITS'];
   switch (units) {
-    case 1: return { scale: 25.4, warning: null };
-    case 2: return { scale: 304.8, warning: null };
-    case 4: return { scale: 1, warning: null };
-    case 5: return { scale: 10, warning: null };
-    case 6: return { scale: 1000, warning: null };
+    case 1: return { scale: 25.4, warning: null, unitLabel: 'inches' };
+    case 2: return { scale: 304.8, warning: null, unitLabel: 'feet' };
+    case 4: return { scale: 1, warning: null, unitLabel: 'mm' };
+    case 5: return { scale: 10, warning: null, unitLabel: 'cm' };
+    case 6: return { scale: 1000, warning: null, unitLabel: 'meters' };
     default: return {
-      scale: 1,
-      warning: 'No unit header found in DXF (or unitless). Defaulting to mm. Use the unit override dropdown if this is wrong.'
+      scale: 1, unitLabel: 'unitless',
+      warning: 'No unit header found in DXF (or unitless). Defaulting to mm. Use the DXF unit dropdown if this is wrong.'
     };
   }
 }
@@ -752,7 +948,7 @@ function extractShapes(dxfText, unitOverride) {
     if (i !== panelIdx) exclusions.push(shapes[i]);
   }
 
-  return { panel: panel, exclusions: exclusions, warnings: warnings, error: null };
+  return { panel: panel, exclusions: exclusions, warnings: warnings, error: null, detectedUnit: unitInfo.unitLabel };
 }
 
 // ============================================================
@@ -1022,7 +1218,7 @@ function cellArea(size, shape) {
 // "Fill" mode extends each slot to fill the boundary.
 // ============================================================
 
-function generateSlotCenterlines(bbox, centroid, slotAngle, slotSpacing, slotLength, fillMode, panelCoords, panelGeoJSON, edgeMargin) {
+function generateSlotCenterlines(bbox, centroid, slotAngle, slotGap, slotLength, fillMode, panelCoords, panelGeoJSON, edgeMargin, slotW, taperDist, taperExp, slotMinW) {
   var angRad = slotAngle * Math.PI / 180;
   var dirX = Math.cos(angRad), dirY = Math.sin(angRad);
   var perpX = -dirY, perpY = dirX;
@@ -1032,54 +1228,102 @@ function generateSlotCenterlines(bbox, centroid, slotAngle, slotSpacing, slotLen
   var halfDiag = Math.sqrt(hw * hw + hh * hh);
   var cx = centroid[0], cy = centroid[1];
 
-  var nSlots = Math.ceil(halfDiag / slotSpacing) + 2;
-  var slots = [];
+  function taperWidthAt(pd) {
+    if (taperDist <= 0 || pd <= 0) return slotW;
+    var t = Math.min(1, pd / taperDist);
+    return Math.max(0, slotW * (1.0 - Math.pow(t, taperExp)));
+  }
 
-  for (var i = -nSlots; i <= nSlots; i++) {
-    var offset = i * slotSpacing;
+  function makeSlot(offset, taperW) {
+    var pd = Math.abs(offset);
     var lineCx = cx + offset * perpX;
     var lineCy = cy + offset * perpY;
-
-    var halfLen;
+    var t1, t2;
     if (fillMode) {
-      halfLen = computeFillHalfLength(lineCx, lineCy, dirX, dirY, panelCoords, panelGeoJSON, edgeMargin);
-      if (halfLen <= 0) continue;
+      var r = computeFillHalfLength(lineCx, lineCy, dirX, dirY, panelCoords, panelGeoJSON, edgeMargin);
+      if (!r || r.t2 - r.t1 < 1) return null;
+      t1 = r.t1; t2 = r.t2;
     } else {
-      halfLen = slotLength / 2;
+      t1 = -slotLength / 2; t2 = slotLength / 2;
     }
-
-    var x1 = lineCx - halfLen * dirX;
-    var y1 = lineCy - halfLen * dirY;
-    var x2 = lineCx + halfLen * dirX;
-    var y2 = lineCy + halfLen * dirY;
-
-    slots.push({
+    return {
       cx: lineCx, cy: lineCy,
-      x1: x1, y1: y1, x2: x2, y2: y2,
-      halfLen: halfLen, perpDist: Math.abs(offset)
-    });
+      x1: lineCx + t1 * dirX, y1: lineCy + t1 * dirY,
+      x2: lineCx + t2 * dirX, y2: lineCy + t2 * dirY,
+      perpDist: pd, taperWidth: taperW
+    };
   }
+
+  var slots = [];
+  var center = makeSlot(0, taperWidthAt(0));
+  if (center) slots.push(center);
+
+  // Walk outward in both directions, spacing by edge-to-edge gap.
+  // Next slot's width depends on its position (via taper); solve iteratively.
+  for (var sign = -1; sign <= 1; sign += 2) {
+    var prevAbsOffset = 0;
+    var prevWidth = slotW;
+    var safety = 0;
+    while (safety++ < 2000) {
+      var nextAbsOffset = prevAbsOffset + prevWidth / 2 + slotGap + prevWidth / 2;
+      var nextWidth = taperWidthAt(nextAbsOffset);
+      for (var iter = 0; iter < 4; iter++) {
+        nextAbsOffset = prevAbsOffset + prevWidth / 2 + slotGap + nextWidth / 2;
+        nextWidth = taperWidthAt(nextAbsOffset);
+      }
+      if (nextWidth < slotMinW) break;
+      if (nextAbsOffset > halfDiag + slotGap) break;
+
+      var slot = makeSlot(sign * nextAbsOffset, nextWidth);
+      if (slot) slots.push(slot);
+      prevAbsOffset = nextAbsOffset;
+      prevWidth = nextWidth;
+    }
+  }
+
   return slots;
 }
 
-function computeFillHalfLength(cx, cy, dirX, dirY, panelCoords, panelGeoJSON, margin) {
-  var maxT = 0;
+// Scan the line (cx + t*dirX, cy + t*dirY) over t ∈ [-scanRange, scanRange]
+// and return the widest contiguous {t1, t2} range that is inside the panel
+// (respecting margin) and outside all exclusion zones (respecting buffer).
+// exclCoords/exclGeoJSON may be null to skip exclusion checks.
+// Handles midpoints that lie outside the panel.
+function findWidestInsideRange(cx, cy, dirX, dirY, scanRange, panelCoords, panelGeoJSON, margin, exclCoords, exclGeoJSON, exclBuffer) {
   var step = 0.5;
-  var limit = 500;
-
-  for (var sign = -1; sign <= 1; sign += 2) {
-    var t = 0;
-    while (t < limit) {
-      var px = cx + sign * t * dirX;
-      var py = cy + sign * t * dirY;
-      if (!pointInPoly(px, py, panelGeoJSON)) break;
-      t += step;
+  var bestT1 = null, bestT2 = null, bestLen = 0;
+  var curT1 = null, curLast = null;
+  for (var t = -scanRange; t <= scanRange; t += step) {
+    var px = cx + t * dirX, py = cy + t * dirY;
+    var ok = pointInPoly(px, py, panelGeoJSON) && distToBoundary(px, py, panelCoords) >= margin;
+    if (ok && exclCoords) {
+      for (var e = 0; e < exclCoords.length; e++) {
+        if (pointInPoly(px, py, exclGeoJSON[e]) || distToBoundary(px, py, exclCoords[e]) < exclBuffer) {
+          ok = false; break;
+        }
+      }
     }
-    var edgeT = t;
-    var clipped = Math.max(0, edgeT - margin);
-    if (clipped > maxT) maxT = clipped;
+    if (ok) {
+      if (curT1 === null) curT1 = t;
+      curLast = t;
+    } else if (curT1 !== null) {
+      var l = curLast - curT1;
+      if (l > bestLen) { bestT1 = curT1; bestT2 = curLast; bestLen = l; }
+      curT1 = null;
+    }
   }
-  return maxT;
+  if (curT1 !== null) {
+    var l2 = curLast - curT1;
+    if (l2 > bestLen) { bestT1 = curT1; bestT2 = curLast; bestLen = l2; }
+  }
+  if (bestT1 === null) return null;
+  return { t1: bestT1, t2: bestT2 };
+}
+
+// Fill mode: find offsets from (cx,cy) along direction where the line stays
+// inside the panel (respecting margin). Returns {t1, t2} or null.
+function computeFillHalfLength(cx, cy, dirX, dirY, panelCoords, panelGeoJSON, margin) {
+  return findWidestInsideRange(cx, cy, dirX, dirY, 500, panelCoords, panelGeoJSON, margin, null, null, 0);
 }
 
 function capsuleVertices(cx, cy, x1, y1, x2, y2, width) {
@@ -1125,53 +1369,15 @@ function clipSlotToPanel(x1, y1, x2, y2, panelCoords, panelGeoJSON, edgeMargin, 
   var len = Math.sqrt(dx * dx + dy * dy);
   if (len < 1e-10) return null;
   var ux = dx / len, uy = dy / len;
-  var step = 0.5;
-
   var cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
 
-  // Walk outward from center in both directions to find usable extent
-  var posLimit = len / 2, negLimit = len / 2;
-
-  for (var t = 0; t <= len / 2; t += step) {
-    var px = cx + t * ux, py = cy + t * uy;
-    if (!pointInPoly(px, py, panelGeoJSON) ||
-        distToBoundary(px, py, panelCoords) < edgeMargin) {
-      posLimit = Math.max(0, t - step);
-      break;
-    }
-    // Check exclusion zones
-    var blocked = false;
-    for (var e = 0; e < exclCoords.length; e++) {
-      if (pointInPoly(px, py, exclGeoJSON[e]) ||
-          distToBoundary(px, py, exclCoords[e]) < exclBuffer) {
-        blocked = true; break;
-      }
-    }
-    if (blocked) { posLimit = Math.max(0, t - step); break; }
-  }
-
-  for (var t = 0; t <= len / 2; t += step) {
-    var px = cx - t * ux, py = cy - t * uy;
-    if (!pointInPoly(px, py, panelGeoJSON) ||
-        distToBoundary(px, py, panelCoords) < edgeMargin) {
-      negLimit = Math.max(0, t - step);
-      break;
-    }
-    var blocked = false;
-    for (var e = 0; e < exclCoords.length; e++) {
-      if (pointInPoly(px, py, exclGeoJSON[e]) ||
-          distToBoundary(px, py, exclCoords[e]) < exclBuffer) {
-        blocked = true; break;
-      }
-    }
-    if (blocked) { negLimit = Math.max(0, t - step); break; }
-  }
-
-  if (posLimit + negLimit < 1) return null;
-
+  // Scan the whole slot line for the widest inside-panel-and-not-excluded segment.
+  // Handles cases where the midpoint sits outside the panel (asymmetric survivors).
+  var r = findWidestInsideRange(cx, cy, ux, uy, len / 2, panelCoords, panelGeoJSON, edgeMargin, exclCoords, exclGeoJSON, exclBuffer);
+  if (!r || r.t2 - r.t1 < 1) return null;
   return {
-    x1: cx - negLimit * ux, y1: cy - negLimit * uy,
-    x2: cx + posLimit * ux, y2: cy + posLimit * uy
+    x1: cx + r.t1 * ux, y1: cy + r.t1 * uy,
+    x2: cx + r.t2 * ux, y2: cy + r.t2 * uy
   };
 }
 
@@ -1583,6 +1789,7 @@ function computeStats(cells, panelCoords, exclusionCoords, shape) {
 // ============================================================
 
 var els = {
+  fileBanner: document.getElementById('fileBanner'),
   dxfFile: document.getElementById('dxfFile'),
   unitOverride: document.getElementById('unitOverride'),
   cellShape: document.getElementById('cellShape'),
@@ -1683,6 +1890,99 @@ els.slotFill.addEventListener('change', function() {
   scheduleRegen();
 });
 
+// Bidirectional binding between a range slider and its number input.
+function bindSliderInput(sliderId, inputId) {
+  var slider = document.getElementById(sliderId);
+  var input = document.getElementById(inputId);
+  slider.addEventListener('input', function() {
+    input.value = slider.value;
+    scheduleRegen();
+  });
+  input.addEventListener('input', function() {
+    slider.value = input.value;
+  });
+}
+bindSliderInput('slotTaperDistSlider', 'slotTaperDist');
+bindSliderInput('slotTaperExpSlider', 'slotTaperExp');
+
+// Auto-wrap listed number inputs with a range slider paired to them.
+// Each config: [inputId, min, max, step]
+[
+  ['nominalSize',   0.5, 20,   0.1],
+  ['minSize',       0.1, 10,   0.1],
+  ['webWidth',      0.1, 10,   0.1],
+  ['cellRotation',  0,   360,  1],
+  ['slotWidth',     0.1, 20,   0.1],
+  ['slotMinWidth',  0.1, 10,   0.1],
+  ['slotLength',    1,   500,  1],
+  ['slotSpacing',   0.1, 30,   0.5],
+  ['slotAngle',     0,   360,  1],
+  ['edgeMargin',    0,   30,   0.5],
+  ['edgeFeather',   0,   50,   0.5],
+  ['edgeExp',       0.1, 10,   0.1],
+  ['exclBuffer',    0,   30,   0.5],
+  ['exclFeather',   0,   30,   0.5],
+  ['exclExp',       0.1, 10,   0.1],
+  ['radialStart',   0,   500,  1],
+  ['radialEnd',     0,   1000, 1],
+  ['radialExp',     0.1, 10,   0.1]
+].forEach(function(cfg) {
+  var id = cfg[0];
+  var input = document.getElementById(id);
+  if (!input) return;
+  // Skip if already in a slider-row (the two taper inputs)
+  if (input.parentElement && input.parentElement.classList.contains('slider-row')) return;
+  // Skip if the input sits in a special layout (e.g. slotAngle inline with flip button)
+  var parent = input.parentElement;
+  var wrapper = document.createElement('div');
+  wrapper.className = 'slider-row';
+  var slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = cfg[1]; slider.max = cfg[2]; slider.step = cfg[3];
+  slider.value = input.value;
+  slider.disabled = input.disabled;
+  // If parent is the sidebar directly, wrap in-place. If parent is a special
+  // flex container (Slot length has Fill checkbox next to it, Slot angle has Flip),
+  // then wrap only the input.
+  var isSpecialParent = parent.tagName === 'DIV' && parent.style.display === 'flex';
+  if (isSpecialParent) {
+    // Replace input with slider+input inside its flex slot
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(slider);
+    wrapper.appendChild(input);
+    // Keep the flex:1 on this row
+    wrapper.style.flex = '1';
+    input.style.flex = '';
+  } else {
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(slider);
+    wrapper.appendChild(input);
+  }
+  slider.addEventListener('input', function() {
+    input.value = slider.value;
+    input.dispatchEvent(new Event('input', {bubbles:true}));
+  });
+  input.addEventListener('input', function() { slider.value = input.value; });
+  // Sync disabled state when the input is toggled disabled (e.g. slot length + Fill)
+  var obs = new MutationObserver(function() { slider.disabled = input.disabled; });
+  obs.observe(input, {attributes: true, attributeFilter: ['disabled']});
+});
+
+// Panel dimensions display beneath the DXF unit row.
+function updatePanelDimensions(bbox, unit) {
+  var el = document.getElementById('panelDimensions');
+  if (!el) return;
+  if (!bbox) {
+    el.classList.add('empty');
+    el.textContent = 'Dimensions: —';
+    return;
+  }
+  var w = (bbox.maxX - bbox.minX);
+  var h = (bbox.maxY - bbox.minY);
+  el.classList.remove('empty');
+  el.textContent = 'Dimensions: ' + w.toFixed(1) + ' × ' + h.toFixed(1) + ' mm';
+}
+
 // Shape picker button wiring
 var shapeBtns = document.querySelectorAll('.shape-btn');
 function onShapeChange() {
@@ -1695,14 +1995,40 @@ function onShapeChange() {
   els.cellSizeControls.style.display = isSlot ? 'none' : '';
   els.slotControls.style.display = isSlot ? '' : 'none';
 
+  // Edge feather + exponent are redundant with slot taper; disable for slot mode.
+  els.edgeFeather.disabled = isSlot;
+  els.edgeExp.disabled = isSlot;
+  var edgeFadeOpacity = isSlot ? '0.4' : '';
+  document.getElementById('edgeFeatherLabel').style.opacity = edgeFadeOpacity;
+  document.getElementById('edgeExpLabel').style.opacity = edgeFadeOpacity;
+  els.edgeFeather.style.opacity = edgeFadeOpacity;
+  els.edgeExp.style.opacity = edgeFadeOpacity;
+
+  if (isSlot) els.slotLength.disabled = els.slotFill.checked;
+
+  // Swap the filename prefix to match the new shape, but only when the current
+  // filename still uses one of our known prefixes (so a user-edited name is preserved).
+  var shapePrefix = {
+    hexagon: 'HONEYCOMBED', triangle: 'TRIANGLED', square: 'SQUARED',
+    diamond: 'DIAMONDED', circle: 'CIRCLED', slot: 'SLOTTED'
+  }[shape];
+  if (shapePrefix) {
+    var known = /^(HONEYCOMBED|TRIANGLED|SQUARED|DIAMONDED|CIRCLED|SLOTTED)-/;
+    var cur = els.svgFilename.value;
+    if (known.test(cur)) {
+      els.svgFilename.value = cur.replace(known, shapePrefix + '-');
+    }
+  }
+
+  var nominalTip = '<span class="info-tip" data-tip="Target size of each cell in the interior of the panel, before any fades are applied.">i</span>';
   if (shape === 'hexagon') {
-    els.nominalSizeLabel.textContent = 'Nominal cell size — flat-to-flat (mm)';
+    els.nominalSizeLabel.innerHTML = 'Cell size — flat-to-flat (mm) ' + nominalTip;
     els.orientationGroup.style.display = '';
   } else if (shape === 'circle') {
-    els.nominalSizeLabel.textContent = 'Nominal cell size — diameter (mm)';
+    els.nominalSizeLabel.innerHTML = 'Cell size — diameter (mm) ' + nominalTip;
     els.orientationGroup.style.display = 'none';
   } else if (!isSlot) {
-    els.nominalSizeLabel.textContent = 'Nominal cell size — side length (mm)';
+    els.nominalSizeLabel.innerHTML = 'Cell size — side length (mm) ' + nominalTip;
     els.orientationGroup.style.display = 'none';
   }
 }
@@ -1714,6 +2040,554 @@ shapeBtns.forEach(function(btn) {
   });
 });
 onShapeChange(); // initialize on load
+
+// Global tooltip: shown on hover of any .info-tip, positioned to fit within viewport.
+(function() {
+  var tip = document.getElementById('globalTooltip');
+  document.addEventListener('mouseover', function(e) {
+    if (!e.target.classList || !e.target.classList.contains('info-tip')) return;
+    var text = e.target.getAttribute('data-tip');
+    if (!text) return;
+    tip.textContent = text;
+    tip.style.display = 'block';
+    var r = e.target.getBoundingClientRect();
+    var tipRect = tip.getBoundingClientRect();
+    var left = r.right + 8;
+    if (left + tipRect.width > window.innerWidth - 8) {
+      left = r.left - tipRect.width - 8;
+    }
+    var top = r.top + r.height / 2 - tipRect.height / 2;
+    if (top < 8) top = 8;
+    if (top + tipRect.height > window.innerHeight - 8) top = window.innerHeight - tipRect.height - 8;
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+  });
+  document.addEventListener('mouseout', function(e) {
+    if (!e.target.classList || !e.target.classList.contains('info-tip')) return;
+    tip.style.display = 'none';
+  });
+})();
+
+// ============================================================
+// Patterns: save/load pattern-setting snapshots (does not include the DXF).
+// ============================================================
+var PATTERN_STORAGE_KEY = 'hcg_patterns';
+var patternState = { patterns: [], activeId: null, snapshot: null };
+
+function getCurrentPatternSettings() {
+  return {
+    cellShape: els.cellShape.value,
+    nominalSize: els.nominalSize.value,
+    minSize: els.minSize.value,
+    webWidth: els.webWidth.value,
+    orientation: document.querySelector('input[name="orientation"]:checked').value,
+    cellRotation: els.cellRotation.value,
+    slotWidth: els.slotWidth.value,
+    slotMinWidth: els.slotMinWidth.value,
+    slotLength: els.slotLength.value,
+    slotFill: els.slotFill.checked,
+    slotSpacing: els.slotSpacing.value,
+    slotAngle: els.slotAngle.value,
+    slotTaperDist: els.slotTaperDist.value,
+    slotTaperExp: els.slotTaperExp.value,
+    edgeMargin: els.edgeMargin.value,
+    edgeFeather: els.edgeFeather.value,
+    edgeExp: els.edgeExp.value,
+    syncExclusion: els.syncExclusion.checked,
+    exclBuffer: els.exclBuffer.value,
+    exclFeather: els.exclFeather.value,
+    exclExp: els.exclExp.value,
+    radialEnable: els.radialEnable.checked,
+    radialStart: els.radialStart.value,
+    radialEnd: els.radialEnd.value,
+    radialExp: els.radialExp.value,
+    outputMode: document.querySelector('input[name="outputMode"]:checked').value,
+    svgFilename: els.svgFilename.value,
+    unitOverride: els.unitOverride.value
+  };
+}
+
+function applyPatternSettings(s) {
+  // Simple value fields
+  els.nominalSize.value = s.nominalSize;
+  els.minSize.value = s.minSize;
+  els.webWidth.value = s.webWidth;
+  els.cellRotation.value = s.cellRotation;
+  els.slotWidth.value = s.slotWidth;
+  els.slotMinWidth.value = s.slotMinWidth;
+  els.slotLength.value = s.slotLength;
+  els.slotSpacing.value = s.slotSpacing;
+  els.slotAngle.value = s.slotAngle;
+  els.slotTaperDist.value = s.slotTaperDist;
+  els.slotTaperExp.value = s.slotTaperExp;
+  els.edgeMargin.value = s.edgeMargin;
+  els.edgeFeather.value = s.edgeFeather;
+  els.edgeExp.value = s.edgeExp;
+  els.exclBuffer.value = s.exclBuffer;
+  els.exclFeather.value = s.exclFeather;
+  els.exclExp.value = s.exclExp;
+  els.radialStart.value = s.radialStart;
+  els.radialEnd.value = s.radialEnd;
+  els.radialExp.value = s.radialExp;
+  els.svgFilename.value = s.svgFilename;
+  els.unitOverride.value = s.unitOverride;
+  // Checkboxes
+  els.slotFill.checked = !!s.slotFill;
+  els.syncExclusion.checked = !!s.syncExclusion;
+  els.radialEnable.checked = !!s.radialEnable;
+  // Radios
+  var orient = document.querySelector('input[name="orientation"][value="' + s.orientation + '"]');
+  if (orient) orient.checked = true;
+  var out = document.querySelector('input[name="outputMode"][value="' + s.outputMode + '"]');
+  if (out) out.checked = true;
+  // Sliders paired with number inputs
+  document.getElementById('slotTaperDistSlider').value = s.slotTaperDist;
+  document.getElementById('slotTaperExpSlider').value = s.slotTaperExp;
+  // Radial fade enables/disables its dependent inputs
+  els.radialStart.disabled = !s.radialEnable;
+  els.radialEnd.disabled = !s.radialEnable;
+  els.radialExp.disabled = !s.radialEnable;
+  // Slot length is disabled when Fill is on
+  els.slotLength.disabled = !!s.slotFill;
+  // Switch shape (this fires onShapeChange for the correct UI toggles) then regen
+  els.cellShape.value = s.cellShape;
+  onShapeChange();
+  regenerateNow();
+}
+
+function loadPatternsFromStorage() {
+  try {
+    var raw = localStorage.getItem(PATTERN_STORAGE_KEY);
+    if (raw) patternState.patterns = JSON.parse(raw) || [];
+  } catch (e) { patternState.patterns = []; }
+}
+function persistPatterns() {
+  try { localStorage.setItem(PATTERN_STORAGE_KEY, JSON.stringify(patternState.patterns)); }
+  catch (e) { console.warn('Failed to persist patterns', e); }
+}
+
+function suggestPatternName() {
+  var d = new Date();
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  return pad(d.getMonth()+1) + '-' + pad(d.getDate())
+    + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function newPatternId() {
+  return 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7);
+}
+
+function saveCurrentPattern() {
+  var p = {
+    id: newPatternId(), name: suggestPatternName(),
+    shape: els.cellShape.value,
+    createdAt: Date.now(), updatedAt: Date.now(),
+    settings: getCurrentPatternSettings()
+  };
+  patternState.patterns.unshift(p);
+  patternState.activeId = p.id;
+  patternState.snapshot = JSON.stringify(p.settings);
+  persistPatterns();
+  renderPatternList();
+  recordUndoIfChanged();
+}
+
+function loadPatternById(id) {
+  var p = patternState.patterns.find(function(x){ return x.id === id; });
+  if (!p) return;
+  applyPatternSettings(p.settings);
+  patternState.activeId = id;
+  patternState.snapshot = JSON.stringify(p.settings);
+  renderPatternList();
+}
+
+function duplicatePatternById(id) {
+  var p = patternState.patterns.find(function(x){ return x.id === id; });
+  if (!p) return;
+  var copy = {
+    id: newPatternId(), name: 'COPY ' + p.name, shape: p.shape,
+    createdAt: Date.now(), updatedAt: Date.now(),
+    settings: JSON.parse(JSON.stringify(p.settings))
+  };
+  patternState.patterns.unshift(copy);
+  persistPatterns();
+  renderPatternList();
+  recordUndoIfChanged();
+}
+
+function renamePatternById(id) {
+  var p = patternState.patterns.find(function(x){ return x.id === id; });
+  if (!p) return;
+  var name = prompt('Rename pattern:', p.name);
+  if (!name) return;
+  p.name = name.trim();
+  p.updatedAt = Date.now();
+  persistPatterns();
+  renderPatternList();
+}
+
+function deletePatternById(id) {
+  var p = patternState.patterns.find(function(x){ return x.id === id; });
+  if (!p) return;
+  if (!confirm('Delete pattern "' + p.name + '"?')) return;
+  patternState.patterns = patternState.patterns.filter(function(x){ return x.id !== id; });
+  if (patternState.activeId === id) { patternState.activeId = null; patternState.snapshot = null; }
+  persistPatterns();
+  renderPatternList();
+  recordUndoIfChanged();
+}
+
+function saveOverActivePattern() {
+  var p = patternState.patterns.find(function(x){ return x.id === patternState.activeId; });
+  if (!p) return;
+  p.settings = getCurrentPatternSettings();
+  p.shape = els.cellShape.value;
+  p.updatedAt = Date.now();
+  patternState.snapshot = JSON.stringify(p.settings);
+  persistPatterns();
+  renderPatternList();
+  recordUndoIfChanged();
+}
+
+function isActivePatternModified() {
+  if (!patternState.activeId || !patternState.snapshot) return false;
+  return JSON.stringify(getCurrentPatternSettings()) !== patternState.snapshot;
+}
+
+function formatRelativeTime(ts) {
+  var diff = Date.now() - ts;
+  var min = 60000, hour = min*60, day = hour*24;
+  if (diff < min) return 'just now';
+  if (diff < hour) return Math.floor(diff/min) + 'm ago';
+  if (diff < day) return Math.floor(diff/hour) + 'h ago';
+  if (diff < day * 7) return Math.floor(diff/day) + 'd ago';
+  return new Date(ts).toLocaleDateString();
+}
+
+var shapeLabels = { hexagon: 'Hex', triangle: 'Tri', square: 'Sqr', diamond: 'Dia', circle: 'Cir', slot: 'Slot' };
+
+var ICON_DUPLICATE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+var ICON_RENAME = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+var ICON_DELETE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+var ICON_SAVE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
+
+function makeIconButton(html, cls, title, onClick) {
+  var b = document.createElement('button');
+  b.className = 'pattern-action' + (cls ? ' ' + cls : '');
+  b.title = title;
+  b.innerHTML = html;
+  b.addEventListener('click', function(e){ e.stopPropagation(); onClick(); });
+  return b;
+}
+
+function renderPatternList() {
+  var listEl = document.getElementById('patternsList');
+  listEl.innerHTML = '';
+  if (patternState.patterns.length === 0) return;
+  var modified = isActivePatternModified();
+  patternState.patterns.forEach(function(p) {
+    var isActive = p.id === patternState.activeId;
+    var item = document.createElement('div');
+    item.className = 'pattern-item' + (isActive ? ' active' : '');
+    item.dataset.patternId = p.id;
+
+    var shape = document.createElement('span');
+    shape.className = 'pattern-item-shape';
+    shape.textContent = shapeLabels[p.shape] || p.shape;
+    item.appendChild(shape);
+
+    var name = document.createElement('span');
+    name.className = 'pattern-item-name';
+    name.textContent = p.name;
+    name.title = 'Click to load: ' + p.name + '\nUpdated ' + formatRelativeTime(p.updatedAt);
+    name.addEventListener('click', function(){ loadPatternById(p.id); });
+    item.appendChild(name);
+
+    if (isActive && modified) {
+      var dot = document.createElement('span');
+      dot.className = 'pattern-modified';
+      dot.title = 'Settings modified since load';
+      item.appendChild(dot);
+    }
+
+    var actions = document.createElement('div');
+    actions.className = 'pattern-item-actions';
+
+    if (isActive && modified) {
+      actions.appendChild(makeIconButton(ICON_SAVE, 'primary', 'Overwrite this pattern with current settings', saveOverActivePattern));
+    }
+    actions.appendChild(makeIconButton(ICON_DUPLICATE, '', 'Duplicate', function(){ duplicatePatternById(p.id); }));
+    actions.appendChild(makeIconButton(ICON_RENAME, '', 'Rename', function(){ renamePatternById(p.id); }));
+    actions.appendChild(makeIconButton(ICON_DELETE, 'danger', 'Delete', function(){ deletePatternById(p.id); }));
+
+    item.appendChild(actions);
+    listEl.appendChild(item);
+  });
+}
+
+// Update the modified indicator + Save-over button when settings drift.
+// Called from scheduleRegen so it stays cheap and coalesced with rAF.
+var lastKnownModified = false;
+function refreshModifiedIndicator() {
+  var now = isActivePatternModified();
+  if (now !== lastKnownModified) {
+    lastKnownModified = now;
+    renderPatternList();
+  }
+}
+
+document.getElementById('savePatternBtn').addEventListener('click', saveCurrentPattern);
+loadPatternsFromStorage();
+renderPatternList();
+
+// Show the auto-detected unit next to the dropdown, but only when mode is auto.
+function updateDetectedUnitBadge(unit) {
+  var badge = document.getElementById('detectedUnitBadge');
+  if (!badge) return;
+  var isAuto = els.unitOverride.value === 'auto';
+  if (isAuto && unit) {
+    badge.textContent = 'Detected: ' + unit;
+    badge.classList.add('visible');
+  } else {
+    badge.classList.remove('visible');
+  }
+}
+els.unitOverride.addEventListener('change', function() {
+  // Force a re-check after a mode change (badge visibility depends on mode).
+  if (state.panelCoords) scheduleRegen();
+  else updateDetectedUnitBadge(null);
+});
+
+// ============================================================
+// Per-section reset: revert one section's inputs to defaults.
+// ============================================================
+var SHAPE_PREFIX = {
+  hexagon: 'HONEYCOMBED', triangle: 'TRIANGLED', square: 'SQUARED',
+  diamond: 'DIAMONDED', circle: 'CIRCLED', slot: 'SLOTTED'
+};
+var SECTION_DEFAULTS = {
+  cellGeometry: {
+    nominalSize: '3.5', minSize: '1.5', webWidth: '1.5', cellRotation: '0',
+    orientation: 'flat',
+    slotWidth: '3', slotMinWidth: '1', slotLength: '41',
+    slotFill: true, slotSpacing: '8.1', slotAngle: '45',
+    slotTaperDist: '300', slotTaperExp: '10'
+  },
+  edge: { edgeMargin: '4', edgeFeather: '14.5', edgeExp: '2.0' },
+  exclusion: { syncExclusion: false, exclBuffer: '3', exclFeather: '5', exclExp: '2.0' },
+  radial: { radialEnable: false, radialStart: '0', radialEnd: '100', radialExp: '1.0' },
+  output: { outputMode: 'holes' }
+};
+
+var RESET_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><polyline points="3 3 3 8 8 8"/></svg>';
+
+function resetSection(name) {
+  var d = SECTION_DEFAULTS[name];
+  if (!d) return;
+  Object.keys(d).forEach(function(k) {
+    if (k === 'orientation') {
+      var r = document.querySelector('input[name="orientation"][value="' + d[k] + '"]');
+      if (r) r.checked = true;
+    } else if (k === 'outputMode') {
+      var r2 = document.querySelector('input[name="outputMode"][value="' + d[k] + '"]');
+      if (r2) r2.checked = true;
+    } else if (els[k]) {
+      if (typeof d[k] === 'boolean') els[k].checked = d[k];
+      else els[k].value = d[k];
+    }
+  });
+  if (name === 'cellGeometry') {
+    document.getElementById('slotTaperDistSlider').value = d.slotTaperDist;
+    document.getElementById('slotTaperExpSlider').value = d.slotTaperExp;
+    els.slotLength.disabled = d.slotFill;
+  }
+  if (name === 'radial') {
+    els.radialStart.disabled = !d.radialEnable;
+    els.radialEnd.disabled = !d.radialEnable;
+    els.radialExp.disabled = !d.radialEnable;
+  }
+  if (name === 'output') {
+    els.svgFilename.value = (SHAPE_PREFIX[els.cellShape.value] || 'HONEYCOMBED') + '-honeycomb';
+  }
+  regenerateNow();
+}
+
+// Inject reset button next to every h3 with data-reset
+document.querySelectorAll('h3[data-reset]').forEach(function(h3) {
+  var sec = h3.getAttribute('data-reset');
+  var btn = document.createElement('button');
+  btn.className = 'section-reset';
+  btn.title = 'Reset this section to defaults';
+  btn.innerHTML = RESET_ICON;
+  btn.addEventListener('click', function(){ resetSection(sec); });
+  h3.appendChild(btn);
+});
+
+// ============================================================
+// Undo / Redo (Cmd/Ctrl-Z). Snapshots app state so both input tweaks
+// and preset actions (save/overwrite/rename/delete) are reversible.
+// ============================================================
+var undoStack = [];
+var redoStack = [];
+var applyingHistory = false;
+var lastSnapshotStr = null;
+var undoDebounce = null;
+
+function snapshotState() {
+  return {
+    settings: getCurrentPatternSettings(),
+    patterns: JSON.parse(JSON.stringify(patternState.patterns)),
+    activeId: patternState.activeId,
+    activeSnapshot: patternState.snapshot
+  };
+}
+
+function applyStateSnapshot(s) {
+  applyingHistory = true;
+  patternState.patterns = JSON.parse(JSON.stringify(s.patterns));
+  patternState.activeId = s.activeId;
+  patternState.snapshot = s.activeSnapshot;
+  persistPatterns();
+  applyPatternSettings(s.settings);
+  renderPatternList();
+  applyingHistory = false;
+  lastSnapshotStr = JSON.stringify(snapshotState());
+}
+
+function recordUndoIfChanged() {
+  if (applyingHistory) return;
+  var snap = snapshotState();
+  var str = JSON.stringify(snap);
+  if (str === lastSnapshotStr) return;
+  if (lastSnapshotStr !== null) {
+    undoStack.push(JSON.parse(lastSnapshotStr));
+    if (undoStack.length > 100) undoStack.shift();
+    redoStack.length = 0;
+  }
+  lastSnapshotStr = str;
+}
+
+function scheduleUndoRecord() {
+  if (undoDebounce) clearTimeout(undoDebounce);
+  undoDebounce = setTimeout(recordUndoIfChanged, 400);
+}
+
+function undo() {
+  recordUndoIfChanged(); // flush any pending
+  if (undoStack.length === 0) return;
+  redoStack.push(JSON.parse(lastSnapshotStr));
+  var prev = undoStack.pop();
+  applyStateSnapshot(prev);
+}
+
+function redo() {
+  if (redoStack.length === 0) return;
+  undoStack.push(JSON.parse(lastSnapshotStr));
+  var next = redoStack.pop();
+  applyStateSnapshot(next);
+}
+
+document.addEventListener('keydown', function(e) {
+  var meta = e.metaKey || e.ctrlKey;
+  if (!meta) return;
+  // Don't hijack when the user is typing text in a text field
+  var t = e.target;
+  var isTextField = t && (t.tagName === 'INPUT' && t.type === 'text' || t.tagName === 'TEXTAREA');
+  if (isTextField) return;
+  if (e.key === 'z' || e.key === 'Z') {
+    e.preventDefault();
+    if (e.shiftKey) redo(); else undo();
+  } else if (e.key === 'y' || e.key === 'Y') {
+    e.preventDefault();
+    redo();
+  }
+});
+
+// Initialize snapshot baseline once els/regen exist.
+setTimeout(function(){ lastSnapshotStr = JSON.stringify(snapshotState()); }, 100);
+
+// ============================================================
+// Hover-preview: hover a pattern row → temporarily apply its settings.
+// ============================================================
+var hoverPrevSnapshot = null;
+document.getElementById('patternsList').addEventListener('mouseover', function(e) {
+  var row = e.target.closest('.pattern-item');
+  if (!row || !row.dataset.patternId) return;
+  if (row.classList.contains('hovering')) return;
+  var p = patternState.patterns.find(function(x){ return x.id === row.dataset.patternId; });
+  if (!p) return;
+  // Save current form state (not persisted; just for revert)
+  hoverPrevSnapshot = getCurrentPatternSettings();
+  applyingHistory = true; // don't record undo during hover peek
+  applyPatternSettings(p.settings);
+  applyingHistory = false;
+  row.classList.add('hovering');
+});
+document.getElementById('patternsList').addEventListener('mouseout', function(e) {
+  var row = e.target.closest('.pattern-item');
+  if (!row || !row.classList.contains('hovering')) return;
+  // Only revert if mouse actually left the row (mouseout fires on child transitions too)
+  var to = e.relatedTarget;
+  if (to && row.contains(to)) return;
+  row.classList.remove('hovering');
+  if (hoverPrevSnapshot) {
+    applyingHistory = true;
+    applyPatternSettings(hoverPrevSnapshot);
+    applyingHistory = false;
+    hoverPrevSnapshot = null;
+  }
+});
+
+// ============================================================
+// Drag-and-drop DXF onto the preview area.
+// ============================================================
+document.getElementById('uploadLink').addEventListener('click', function() {
+  els.dxfFile.click();
+});
+var previewEl = document.querySelector('.preview');
+['dragenter','dragover'].forEach(function(ev) {
+  previewEl.addEventListener(ev, function(e) {
+    e.preventDefault();
+    previewEl.classList.add('drop-active');
+  });
+});
+['dragleave','drop'].forEach(function(ev) {
+  previewEl.addEventListener(ev, function(e) {
+    e.preventDefault();
+    if (ev === 'dragleave' && e.target !== previewEl) return;
+    previewEl.classList.remove('drop-active');
+  });
+});
+previewEl.addEventListener('drop', function(e) {
+  e.preventDefault();
+  var f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (!f) return;
+  if (!/\.dxf$/i.test(f.name)) {
+    alert('Please drop a .dxf file');
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(ev) { setDxfFile(ev.target.result, f.name); };
+  reader.readAsText(f);
+});
+
+// ============================================================
+// Compact-mode toggle: collapse the sidebar to a narrow strip.
+// ============================================================
+var compactBtn = document.createElement('button');
+compactBtn.className = 'compact-toggle';
+compactBtn.title = 'Toggle compact sidebar';
+compactBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+document.body.appendChild(compactBtn);
+function setCompact(on) {
+  document.body.classList.toggle('compact', on);
+  compactBtn.innerHTML = on
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+  try { localStorage.setItem('hcg_compact', on ? '1' : '0'); } catch(e){}
+}
+compactBtn.addEventListener('click', function() { setCompact(!document.body.classList.contains('compact')); });
+if (localStorage.getItem('hcg_compact') === '1') setCompact(true);
 
 function getOrientation() {
   return document.querySelector('input[name="orientation"]:checked').value;
@@ -1739,22 +2613,52 @@ function scheduleRegen() {
     requestAnimationFrame(function() {
       regenPending = false;
       regenerateNow();
+      refreshModifiedIndicator();
+      scheduleUndoRecord();
     });
   }
 }
 
 var dxfText = null;
+var dxfFileName = null;
+
+function setDxfFile(text, name) {
+  dxfText = text;
+  dxfFileName = name;
+  els.fileBanner.textContent = name;
+  els.fileBanner.classList.remove('empty');
+  try {
+    localStorage.setItem('hcg_dxfText', text);
+    localStorage.setItem('hcg_dxfName', name);
+  } catch (e) {}
+  regenerateNow();
+}
 
 els.dxfFile.addEventListener('change', function(e) {
   var file = e.target.files[0];
   if (!file) return;
   var reader = new FileReader();
   reader.onload = function(ev) {
-    dxfText = ev.target.result;
-    regenerateNow();
+    setDxfFile(ev.target.result, file.name);
   };
   reader.readAsText(file);
 });
+
+// Restore last file from localStorage on load
+(function() {
+  var saved = null, savedName = null;
+  try {
+    saved = localStorage.getItem('hcg_dxfText');
+    savedName = localStorage.getItem('hcg_dxfName');
+  } catch (e) {}
+  if (saved && savedName) {
+    dxfText = saved;
+    dxfFileName = savedName;
+    els.fileBanner.textContent = savedName;
+    els.fileBanner.classList.remove('empty');
+    regenerateNow();
+  }
+})();
 
 els.radialEnable.addEventListener('change', function() {
   var on = els.radialEnable.checked;
@@ -1832,6 +2736,8 @@ function regenerateNow() {
     els.btnDownload.disabled = true;
     els.btnDownloadDxf.disabled = true;
     els.btnDebug.disabled = true;
+    updateDetectedUnitBadge(null);
+    updatePanelDimensions(null);
     return;
   }
 
@@ -1850,6 +2756,8 @@ function regenerateNow() {
       msgs.push({ type: 'warn', text: result.warnings[i] });
     }
   }
+
+  updateDetectedUnitBadge(result.detectedUnit);
 
   if (result.error) {
     msgs.push({ type: 'error', text: result.error });
@@ -1884,6 +2792,7 @@ function regenerateNow() {
   var radE = numVal(els.radialExp, 1);
   var mode = getOutputMode();
   var bbox = bboxOf(state.panelCoords);
+  updatePanelDimensions(bbox);
   var shape = els.cellShape.value;
 
   if (shape === 'slot') {
@@ -1897,22 +2806,15 @@ function regenerateNow() {
     var taperDist = numVal(els.slotTaperDist, 30);
     var taperExp = numVal(els.slotTaperExp, 1.5);
 
-    var rawSlots = generateSlotCenterlines(bbox, state.centroid, slotAng, slotSpc, slotLen, slotFill, state.panelCoords, state.panelGeoJSON, edgeM);
+    var rawSlots = generateSlotCenterlines(bbox, state.centroid, slotAng, slotSpc, slotLen, slotFill, state.panelCoords, state.panelGeoJSON, edgeM, slotW, taperDist, taperExp, slotMinW);
 
     var slots = [];
     for (var i = 0; i < rawSlots.length; i++) {
       var s = rawSlots[i];
 
-      // Taper: width reduces based on perpendicular distance from centroid
-      var taperScale = 1.0;
-      if (taperDist > 0 && s.perpDist > 0) {
-        var t = Math.min(1, s.perpDist / taperDist);
-        taperScale = 1.0 - Math.pow(t, taperExp);
-      }
-
-      // Also apply edge/exclusion/radial fade at slot center
-      var eS = edgeScale(s.cx, s.cy, state.panelCoords, edgeM, edgeF, edgeE);
-      if (eS < 0) continue;
+      // Slot mode: taper already thins by position, and clipSlotToPanel enforces the
+      // edge margin along the slot's actual length — so we skip the midpoint edge gate.
+      var eS = 1.0;
       var xS = 1.0;
       if (state.exclusionCoords.length > 0) {
         xS = exclusionScale(s.cx, s.cy, state.exclusionCoords, state.exclusionGeoJSON, exclB, exclF, exclE);
@@ -1924,14 +2826,11 @@ function regenerateNow() {
         if (rS < 0) continue;
       }
 
-      var finalScale = Math.min(taperScale, eS, xS, rS);
-      var finalW = slotW * finalScale;
+      var fadeScale = Math.min(eS, xS, rS);
+      var finalW = s.taperWidth * fadeScale;
       if (finalW < slotMinW) continue;
 
-      // Must be inside panel
-      if (!pointInPoly(s.cx, s.cy, state.panelGeoJSON)) continue;
-
-      // Clip slot endpoints to panel boundary
+      // Clip slot endpoints to panel boundary (handles midpoints outside the panel)
       var clipped = clipSlotToPanel(s.x1, s.y1, s.x2, s.y2, state.panelCoords, state.panelGeoJSON, edgeM, state.exclusionCoords, state.exclusionGeoJSON, exclB);
       if (!clipped) continue;
 
