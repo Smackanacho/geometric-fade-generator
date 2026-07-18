@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Honeycomb Perforation Generator</title>
+<title>Geometric Fade Generator</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; height: 100vh; overflow: hidden; color: #333; font-size: 13px; }
@@ -248,6 +248,25 @@ input[type="range"]:disabled::-moz-range-thumb { background: #bbb; cursor: defau
 .sync-toggle input:checked + .slider::before { transform: translateX(16px); }
 .sync-label { font-size: 11px; color: #777; cursor: pointer; }
 
+.segment {
+  display: flex; border: 1px solid #ccc; border-radius: 5px;
+  overflow: hidden; margin: 4px 0 6px;
+}
+.segment label {
+  flex: 1; text-align: center; padding: 7px 8px;
+  cursor: pointer; font-size: 12px; color: #666;
+  background: #fafafa; transition: background 0.15s, color 0.15s;
+  margin: 0; display: block; position: relative;
+  font-weight: 500;
+}
+.segment label:first-child { border-right: 1px solid #ccc; }
+.segment label input {
+  position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0;
+}
+.segment label:has(input:checked) { background: #333; color: #fff; }
+.segment label:hover { background: #eee; }
+.segment label:has(input:checked):hover { background: #333; }
+
 .flip-btn {
   padding: 4px 10px; border: 1px solid #ccc; border-radius: 3px;
   background: #fff; cursor: pointer; font-size: 11px; font-weight: 500;
@@ -261,7 +280,7 @@ input[type="range"]:disabled::-moz-range-thumb { background: #bbb; cursor: defau
 <div id="globalTooltip"></div>
 
 <div class="controls">
-  <h2>Honeycomb Generator</h2>
+  <h2>Geometric Fade Generator</h2>
 
   <h3>File Input</h3>
   <label>DXF file <span class="info-tip" data-tip="The panel outline DXF exported from your CAD tool. The outer profile becomes the panel; any closed inner shapes become exclusion zones (cutouts).">i</span></label>
@@ -308,14 +327,9 @@ input[type="range"]:disabled::-moz-range-thumb { background: #bbb; cursor: defau
   <input type="hidden" id="cellShape" value="hexagon">
   <hr>
 
-  <h3>Patterns <span class="info-tip" data-tip="Saved snapshots of your settings (pattern only — not the DXF). Load, duplicate, rename, or delete. Presets persist across page refreshes.">i</span></h3>
-  <button type="button" id="savePatternBtn" class="pattern-save-btn">+ Save current pattern</button>
-  <div id="patternsList" class="patterns-list"></div>
-  <hr>
-
   <h3 data-reset="cellGeometry">Cell Geometry</h3>
   <div id="cellSizeControls">
-  <label id="nominalSizeLabel">Cell size — flat-to-flat (mm) <span class="info-tip" data-tip="Target size of each cell in the interior of the panel, before any fades are applied.">i</span></label>
+  <label id="nominalSizeLabel">Cell size (mm) <span class="info-tip" data-tip="Target size of each cell in the interior of the panel, before any fades are applied.">i</span></label>
   <input type="number" id="nominalSize" value="3.5" step="0.1" min="0.1">
   <label>Minimum cell size (mm) <span class="info-tip" data-tip="Smallest cell allowed in the output. Cells shrunk below this by edge/exclusion/radial fades are dropped from the pattern.">i</span></label>
   <input type="number" id="minSize" value="1.5" step="0.1" min="0.1">
@@ -323,9 +337,9 @@ input[type="range"]:disabled::-moz-range-thumb { background: #bbb; cursor: defau
   <input type="number" id="webWidth" value="1.5" step="0.1" min="0.1">
   <div id="orientationGroup">
     <label>Cell orientation <span class="info-tip" data-tip="Hex tiling only. Flat-top rests on a horizontal edge; pointy-top rests on a vertex.">i</span></label>
-    <div class="radio-group">
-      <label><input type="radio" name="orientation" value="flat" checked> Flat-top</label>
-      <label><input type="radio" name="orientation" value="pointy"> Pointy-top</label>
+    <div class="segment">
+      <label><input type="radio" name="orientation" value="flat" checked><span>Flat-top</span></label>
+      <label><input type="radio" name="orientation" value="pointy"><span>Pointy-top</span></label>
     </div>
   </div>
   <label>Cell rotation (deg) <span class="info-tip" data-tip="Rotates the entire tiling grid inside the panel.">i</span></label>
@@ -356,7 +370,7 @@ input[type="range"]:disabled::-moz-range-thumb { background: #bbb; cursor: defau
     <input type="range" id="slotTaperDistSlider" min="0" max="300" step="1" value="300">
     <input type="number" id="slotTaperDist" value="300" step="1" min="0">
   </div>
-  <label>Slot width taper exponent <span class="info-tip" data-tip="Shape of the width-taper curve. 1 = linear falloff. Higher values = flat middle region then a quick shrink at the outer ranks.">i</span></label>
+  <label>Slot width taper multiplier <span class="info-tip" data-tip="Shape of the width-taper curve. 1 = linear falloff. Higher values = flat middle region then a quick shrink at the outer ranks.">i</span></label>
   <div class="slider-row">
     <input type="range" id="slotTaperExpSlider" min="0.1" max="10" step="0.1" value="10">
     <input type="number" id="slotTaperExp" value="10" step="0.1" min="0.1">
@@ -369,35 +383,41 @@ input[type="range"]:disabled::-moz-range-thumb { background: #bbb; cursor: defau
   <input type="number" id="edgeMargin" value="4" step="0.5" min="0">
   <label id="edgeFeatherLabel">Edge feathering distance (mm) <span class="info-tip" data-tip="Fade band immediately inside the margin where cells shrink smoothly toward zero. Ignored in slot mode (the width taper handles the same job).">i</span></label>
   <input type="number" id="edgeFeather" value="14.5" step="0.5" min="0">
-  <label id="edgeExpLabel">Edge fade exponent <span class="info-tip" data-tip="Steepness of the edge-fade curve. 1 = linear falloff, higher = flat interior then quick fade near the edge.">i</span></label>
+  <label id="edgeExpLabel">Edge fade multiplier <span class="info-tip" data-tip="Steepness of the edge fade. 1 = linear falloff, higher = flat interior then quick fade near the edge.">i</span></label>
   <input type="number" id="edgeExp" value="2.0" step="0.1" min="0.1">
   <hr>
 
-  <h3 data-reset="exclusion">Exclusion Zones</h3>
+  <h3 data-reset="exclusion">Panel Feature Treatment</h3>
   <div class="sync-row">
     <label class="sync-toggle"><input type="checkbox" id="syncExclusion"><span class="slider"></span></label>
     <span class="sync-label" id="syncLabel">Sync with panel edge</span>
     <span class="info-tip" data-tip="When on, the three exclusion controls below mirror the panel-edge values above. Turn off to set them independently.">i</span>
   </div>
-  <label>Exclusion buffer (mm) <span class="info-tip" data-tip="Hard minimum clearance around each exclusion zone. Anything closer is clipped away.">i</span></label>
+  <label id="exclBufferLabel">Exclusion buffer (mm) <span class="info-tip" data-tip="Hard minimum clearance around each exclusion zone. Anything closer is clipped away.">i</span></label>
   <input type="number" id="exclBuffer" value="3" step="0.5" min="0">
-  <label>Feathering distance (mm) <span class="info-tip" data-tip="Fade band outside the buffer where cells shrink smoothly toward zero around the exclusion zone.">i</span></label>
+  <label id="exclFeatherLabel">Feathering distance (mm) <span class="info-tip" data-tip="Fade band outside the buffer where cells shrink smoothly toward zero around the exclusion zone.">i</span></label>
   <input type="number" id="exclFeather" value="5" step="0.5" min="0">
-  <label>Fade exponent <span class="info-tip" data-tip="Steepness of the exclusion-fade curve. 1 = linear, higher = flat then quick fade near the zone.">i</span></label>
+  <label id="exclExpLabel">Fade multiplier <span class="info-tip" data-tip="Steepness of the exclusion fade. 1 = linear, higher = flat then quick fade near the zone.">i</span></label>
   <input type="number" id="exclExp" value="2.0" step="0.1" min="0.1">
   <hr>
 
   <h3 data-reset="radial">Center-Radial Fade</h3>
-  <div class="check-group">
-    <label><input type="checkbox" id="radialEnable"> Enable radial fade</label>
+  <div class="sync-row">
+    <label class="sync-toggle"><input type="checkbox" id="radialEnable"><span class="slider"></span></label>
+    <span class="sync-label">Enable radial fade</span>
     <span class="info-tip" data-tip="Optional: shrink cells based on distance from the panel centroid. Handy for spotlight-style patterns that are dense in the middle and sparse toward the corners.">i</span>
   </div>
-  <label>Inner radius (mm) <span class="info-tip" data-tip="Radius from centroid inside which cells stay at full size (fade doesn't kick in yet).">i</span></label>
+  <label id="radialStartLabel">Inner radius (mm) <span class="info-tip" data-tip="Radius from centroid inside which cells stay at full size (fade doesn't kick in yet).">i</span></label>
   <input type="number" id="radialStart" value="0" step="1" min="0" disabled>
-  <label>Outer radius (mm) <span class="info-tip" data-tip="Radius beyond which cells are fully faded (dropped from the pattern).">i</span></label>
+  <label id="radialEndLabel">Outer radius (mm) <span class="info-tip" data-tip="Radius beyond which cells are fully faded (dropped from the pattern).">i</span></label>
   <input type="number" id="radialEnd" value="100" step="1" min="0" disabled>
-  <label>Fade exponent <span class="info-tip" data-tip="Steepness of the radial-fade curve between Start and End radius. 1 = linear.">i</span></label>
+  <label id="radialExpLabel">Fade multiplier <span class="info-tip" data-tip="Steepness of the radial fade between Inner and Outer radius. 1 = linear.">i</span></label>
   <input type="number" id="radialExp" value="1.0" step="0.1" min="0.1" disabled>
+  <hr>
+
+  <h3>Patterns <span class="info-tip" data-tip="Saved snapshots of your settings (pattern only — not the DXF). Load, duplicate, rename, or delete. Presets persist across page refreshes.">i</span></h3>
+  <button type="button" id="savePatternBtn" class="pattern-save-btn">+ Save current pattern</button>
+  <div id="patternsList" class="patterns-list"></div>
   <hr>
 
   <h3 data-reset="output">Output</h3>
@@ -1840,6 +1860,32 @@ var els = {
 // ============================================================
 var exclPrevValues = { buffer: '3', feather: '5', exp: '2.0' };
 
+// Global toggle helper — hides both the label and the input directly after it
+// (auto-slider wraps mean nextElementSibling may be a .slider-row div).
+function toggleField(labelEl, hidden) {
+  if (!labelEl) return;
+  labelEl.style.display = hidden ? 'none' : '';
+  var next = labelEl.nextElementSibling;
+  if (next) next.style.display = hidden ? 'none' : '';
+}
+
+// Sync toggle also hides the exclusion inputs — they're just mirrors of edge values.
+function applyExclusionSyncVisibility() {
+  var syncing = els.syncExclusion.checked;
+  toggleField(document.getElementById('exclBufferLabel'), syncing);
+  toggleField(document.getElementById('exclFeatherLabel'), syncing || els.cellShape.value === 'slot');
+  toggleField(document.getElementById('exclExpLabel'), syncing || els.cellShape.value === 'slot');
+}
+
+// Radial toggle hides all radial inputs when disabled.
+function applyRadialVisibility() {
+  var hidden = !els.radialEnable.checked;
+  toggleField(document.getElementById('radialStartLabel'), hidden);
+  toggleField(document.getElementById('radialEndLabel'), hidden);
+  toggleField(document.getElementById('radialExpLabel'), hidden);
+}
+els.radialEnable.addEventListener('change', applyRadialVisibility);
+
 els.syncExclusion.addEventListener('change', function() {
   if (els.syncExclusion.checked) {
     exclPrevValues.buffer = els.exclBuffer.value;
@@ -1859,6 +1905,7 @@ els.syncExclusion.addEventListener('change', function() {
     els.exclFeather.disabled = false;
     els.exclExp.disabled = false;
   }
+  applyExclusionSyncVisibility();
   scheduleRegen();
 });
 
@@ -2004,6 +2051,10 @@ function onShapeChange() {
   els.edgeFeather.style.opacity = edgeFadeOpacity;
   els.edgeExp.style.opacity = edgeFadeOpacity;
 
+  // Exclusion fields: hidden if syncing with panel edge, and in slot mode the
+  // feather/exp are hidden too (same midpoint problem as edge fade).
+  applyExclusionSyncVisibility();
+
   if (isSlot) els.slotLength.disabled = els.slotFill.checked;
 
   // Swap the filename prefix to match the new shape, but only when the current
@@ -2022,13 +2073,13 @@ function onShapeChange() {
 
   var nominalTip = '<span class="info-tip" data-tip="Target size of each cell in the interior of the panel, before any fades are applied.">i</span>';
   if (shape === 'hexagon') {
-    els.nominalSizeLabel.innerHTML = 'Cell size — flat-to-flat (mm) ' + nominalTip;
+    els.nominalSizeLabel.innerHTML = 'Cell size (mm) ' + nominalTip;
     els.orientationGroup.style.display = '';
   } else if (shape === 'circle') {
-    els.nominalSizeLabel.innerHTML = 'Cell size — diameter (mm) ' + nominalTip;
+    els.nominalSizeLabel.innerHTML = 'Cell size (mm) ' + nominalTip;
     els.orientationGroup.style.display = 'none';
   } else if (!isSlot) {
-    els.nominalSizeLabel.innerHTML = 'Cell size — side length (mm) ' + nominalTip;
+    els.nominalSizeLabel.innerHTML = 'Cell size (mm) ' + nominalTip;
     els.orientationGroup.style.display = 'none';
   }
 }
@@ -2040,6 +2091,7 @@ shapeBtns.forEach(function(btn) {
   });
 });
 onShapeChange(); // initialize on load
+applyRadialVisibility(); // apply after auto-slider wrap so slider-rows are hidden too
 
 // Global tooltip: shown on hover of any .info-tip, positioned to fit within viewport.
 (function() {
@@ -2817,7 +2869,8 @@ function regenerateNow() {
       var eS = 1.0;
       var xS = 1.0;
       if (state.exclusionCoords.length > 0) {
-        xS = exclusionScale(s.cx, s.cy, state.exclusionCoords, state.exclusionGeoJSON, exclB, exclF, exclE);
+        // Slot mode ignores exclusion feather/exp too — same midpoint problem as edge fade.
+        xS = exclusionScale(s.cx, s.cy, state.exclusionCoords, state.exclusionGeoJSON, exclB, 0, exclE);
         if (xS < 0) continue;
       }
       var rS = 1.0;
@@ -2830,8 +2883,12 @@ function regenerateNow() {
       var finalW = s.taperWidth * fadeScale;
       if (finalW < slotMinW) continue;
 
-      // Clip slot endpoints to panel boundary (handles midpoints outside the panel)
-      var clipped = clipSlotToPanel(s.x1, s.y1, s.x2, s.y2, state.panelCoords, state.panelGeoJSON, edgeM, state.exclusionCoords, state.exclusionGeoJSON, exclB);
+      // Clip slot endpoints to panel boundary (handles midpoints outside the panel).
+      // The centerline endpoints need to stop far enough back that the semicircular
+      // capsule cap (radius = finalW/2) doesn't spill past the panel edge.
+      var slotEffectiveMargin = Math.max(edgeM, finalW / 2);
+      var slotEffectiveBuffer = Math.max(exclB, finalW / 2);
+      var clipped = clipSlotToPanel(s.x1, s.y1, s.x2, s.y2, state.panelCoords, state.panelGeoJSON, slotEffectiveMargin, state.exclusionCoords, state.exclusionGeoJSON, slotEffectiveBuffer);
       if (!clipped) continue;
 
       var verts = capsuleVertices(s.cx, s.cy, clipped.x1, clipped.y1, clipped.x2, clipped.y2, finalW);
