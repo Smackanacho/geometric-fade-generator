@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Geometric Fade Generator</title>
+<title>Geometric Fade Navigator</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; height: 100vh; overflow: hidden; color: #333; font-size: 13px; }
@@ -212,6 +212,58 @@ input[type="range"]:disabled::-moz-range-thumb { background: #bbb; cursor: defau
 }
 .unit-badge.visible { display: inline-block; }
 
+.current-file {
+  font-size: 11px; padding: 4px 2px 0;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  color: #444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.current-file::before {
+  content: 'Loaded: '; color: #888; font-family: inherit;
+}
+.current-file.empty { color: #999; font-style: italic; font-family: inherit; }
+.current-file.empty::before { content: ''; }
+
+.construction-note {
+  font-size: 11px; padding: 5px 8px; margin-top: 6px;
+  background: #fff8e1; color: #795548; border: 1px solid #ffe082;
+  border-radius: 3px; line-height: 1.35;
+}
+
+/* Fader — the fade section takes visual precedence to signal the app's headline feature. */
+.fader-header {
+  color: #1976d2 !important;
+  border-top: 2px solid #1976d2;
+  padding-top: 12px;
+  margin-top: 20px;
+}
+.fader-header .section-reset { color: rgba(25, 118, 210, 0.6); }
+.fader-header .section-reset:hover { color: #1976d2; background: rgba(25, 118, 210, 0.08); }
+.fader-count {
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 10px; padding: 2px 7px 3px; border-radius: 10px;
+  background: rgba(25, 118, 210, 0.12); color: #1565c0;
+  letter-spacing: 0.02em; text-transform: none;
+  margin-right: 6px; font-weight: 500;
+}
+.fader-count.none { background: #eee; color: #999; }
+.fader-sub {
+  margin: 10px 0 14px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(25, 118, 210, 0.25);
+}
+.fader-sub-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.7px;
+  color: #1976d2; font-weight: 700; margin: 0 0 4px;
+  display: flex; align-items: center; gap: 8px;
+}
+.fader-sub-label .fader-sub-active {
+  width: 6px; height: 6px; border-radius: 50%; background: #1976d2;
+}
+.fader-sub-label .fader-sub-inactive {
+  width: 6px; height: 6px; border-radius: 50%; background: #ccc;
+}
+.fader-sub.dimmed { opacity: 0.55; }
+
 .info-tip {
   display: inline-block; width: 14px; height: 14px; border-radius: 50%;
   background: #d5d5d5; color: #555; font-size: 10px; font-weight: 700;
@@ -280,11 +332,12 @@ input[type="range"]:disabled::-moz-range-thumb { background: #bbb; cursor: defau
 <div id="globalTooltip"></div>
 
 <div class="controls">
-  <h2>Geometric Fade Generator</h2>
+  <h2>Geometric Fade Navigator</h2>
 
   <h3>File Input</h3>
   <label>DXF file <span class="info-tip" data-tip="The panel outline DXF exported from your CAD tool. The outer profile becomes the panel; any closed inner shapes become exclusion zones (cutouts).">i</span></label>
   <input type="file" id="dxfFile" accept=".dxf">
+  <div id="currentFileNote" class="current-file empty">No file loaded</div>
   <label>DXF unit <span class="info-tip" data-tip="Interpret the DXF's coordinate values as this unit. Auto-detect reads the file's $INSUNITS header (falls back to mm if missing).">i</span></label>
   <div class="unit-row">
     <select id="unitOverride">
@@ -295,6 +348,17 @@ input[type="range"]:disabled::-moz-range-thumb { background: #bbb; cursor: defau
     <span id="detectedUnitBadge" class="unit-badge"></span>
   </div>
   <div id="panelDimensions" class="panel-dimensions empty">Dimensions: —</div>
+  <div class="sync-row" style="margin-top:6px;">
+    <label class="sync-toggle"><input type="checkbox" id="ignoreConstruction" checked><span class="slider"></span></label>
+    <span class="sync-label">Ignore construction lines</span>
+    <span class="info-tip" data-tip="Skip DXF entities that look like construction geometry — entities on the Defpoints layer, or with linetypes like Center, Phantom, Hidden, Dashed, Dashdot, Divide. Fusion 360 sometimes exports construction sketch lines and these would be treated as extra exclusion zones otherwise. Turn off if it's ignoring something you actually want.">i</span>
+  </div>
+  <div class="sync-row" style="margin-top:4px;">
+    <label class="sync-toggle"><input type="checkbox" id="showConstruction"><span class="slider"></span></label>
+    <span class="sync-label">Show ignored lines in preview</span>
+    <span class="info-tip" data-tip="Overlay the entities that were skipped by the ignore filter as dashed grey lines, in their actual positions. Helpful for verifying the filter is doing what you want.">i</span>
+  </div>
+  <div id="constructionNote" class="construction-note" style="display:none;"></div>
   <hr>
 
   <h3>Cell Shape <span class="info-tip" data-tip="The perforation unit shape. Hex/Triangle/Square/Diamond/Circle tile as a repeating grid. Slot is a long capsule repeated in parallel ranks.">i</span></h3>
@@ -365,26 +429,12 @@ input[type="range"]:disabled::-moz-range-thumb { background: #bbb; cursor: defau
     <input type="number" id="slotAngle" value="45" step="1" style="flex:1;">
     <button type="button" class="flip-btn" id="slotFlipBtn">Flip 90&deg;</button>
   </div>
-  <label>Slot width taper distance (mm) <span class="info-tip" data-tip="Perpendicular distance from the panel center over which each slot's WIDTH shrinks from full to zero. Larger = gentler taper, slots stay fatter further out from center.">i</span></label>
-  <div class="slider-row">
-    <input type="range" id="slotTaperDistSlider" min="0" max="300" step="1" value="300">
-    <input type="number" id="slotTaperDist" value="300" step="1" min="0">
-  </div>
-  <label>Slot width taper multiplier <span class="info-tip" data-tip="Shape of the width-taper curve. 1 = linear falloff. Higher values = flat middle region then a quick shrink at the outer ranks.">i</span></label>
-  <div class="slider-row">
-    <input type="range" id="slotTaperExpSlider" min="0.1" max="10" step="0.1" value="10">
-    <input type="number" id="slotTaperExp" value="10" step="0.1" min="0.1">
-  </div>
   </div>
   <hr>
 
   <h3 data-reset="edge">Panel Edge Treatment</h3>
   <label>Edge margin (mm) <span class="info-tip" data-tip="Hard minimum clearance every cell or slot must keep from the panel outline. Anything closer is clipped away.">i</span></label>
   <input type="number" id="edgeMargin" value="4" step="0.5" min="0">
-  <label id="edgeFeatherLabel">Edge feathering distance (mm) <span class="info-tip" data-tip="Fade band immediately inside the margin where cells shrink smoothly toward zero. Ignored in slot mode (the width taper handles the same job).">i</span></label>
-  <input type="number" id="edgeFeather" value="14.5" step="0.5" min="0">
-  <label id="edgeExpLabel">Edge fade multiplier <span class="info-tip" data-tip="Steepness of the edge fade. 1 = linear falloff, higher = flat interior then quick fade near the edge.">i</span></label>
-  <input type="number" id="edgeExp" value="2.0" step="0.1" min="0.1">
   <hr>
 
   <h3 data-reset="exclusion">Panel Feature Treatment</h3>
@@ -395,24 +445,58 @@ input[type="range"]:disabled::-moz-range-thumb { background: #bbb; cursor: defau
   </div>
   <label id="exclBufferLabel">Exclusion buffer (mm) <span class="info-tip" data-tip="Hard minimum clearance around each exclusion zone. Anything closer is clipped away.">i</span></label>
   <input type="number" id="exclBuffer" value="3" step="0.5" min="0">
-  <label id="exclFeatherLabel">Feathering distance (mm) <span class="info-tip" data-tip="Fade band outside the buffer where cells shrink smoothly toward zero around the exclusion zone.">i</span></label>
-  <input type="number" id="exclFeather" value="5" step="0.5" min="0">
-  <label id="exclExpLabel">Fade multiplier <span class="info-tip" data-tip="Steepness of the exclusion fade. 1 = linear, higher = flat then quick fade near the zone.">i</span></label>
-  <input type="number" id="exclExp" value="2.0" step="0.1" min="0.1">
   <hr>
 
-  <h3 data-reset="radial">Center-Radial Fade</h3>
-  <div class="sync-row">
-    <label class="sync-toggle"><input type="checkbox" id="radialEnable"><span class="slider"></span></label>
-    <span class="sync-label">Enable radial fade</span>
-    <span class="info-tip" data-tip="Optional: shrink cells based on distance from the panel centroid. Handy for spotlight-style patterns that are dense in the middle and sparse toward the corners.">i</span>
+  <h3 data-reset="fade" class="fader-header">
+    <span>Fader</span>
+    <span id="faderCount" class="fader-count none">0 active</span>
+    <span class="info-tip" data-tip="The headline feature. Every fade layer here reshapes the pattern smoothly around a specific boundary — the panel edge, an exclusion zone, the panel center, or (in slot mode) each slot's width. Combine layers to sculpt the result.">i</span>
+  </h3>
+
+  <div id="slotFadeGroup" class="fader-sub" style="display:none;">
+    <div class="fader-sub-label"><span id="slotFadeIndicator" class="fader-sub-inactive"></span>Slot width</div>
+    <label>Taper distance (mm) <span class="info-tip" data-tip="Perpendicular distance from the panel center over which each slot's WIDTH shrinks from full to zero. Larger = gentler taper, slots stay fatter further out from center.">i</span></label>
+    <div class="slider-row">
+      <input type="range" id="slotTaperDistSlider" min="0" max="300" step="1" value="300">
+      <input type="number" id="slotTaperDist" value="300" step="1" min="0">
+    </div>
+    <label>Taper multiplier <span class="info-tip" data-tip="Shape of the width-taper curve. 1 = linear falloff. Higher values = flat middle region then a quick shrink at the outer ranks.">i</span></label>
+    <div class="slider-row">
+      <input type="range" id="slotTaperExpSlider" min="0.1" max="10" step="0.1" value="10">
+      <input type="number" id="slotTaperExp" value="10" step="0.1" min="0.1">
+    </div>
   </div>
-  <label id="radialStartLabel">Inner radius (mm) <span class="info-tip" data-tip="Radius from centroid inside which cells stay at full size (fade doesn't kick in yet).">i</span></label>
-  <input type="number" id="radialStart" value="0" step="1" min="0" disabled>
-  <label id="radialEndLabel">Outer radius (mm) <span class="info-tip" data-tip="Radius beyond which cells are fully faded (dropped from the pattern).">i</span></label>
-  <input type="number" id="radialEnd" value="100" step="1" min="0" disabled>
-  <label id="radialExpLabel">Fade multiplier <span class="info-tip" data-tip="Steepness of the radial fade between Inner and Outer radius. 1 = linear.">i</span></label>
-  <input type="number" id="radialExp" value="1.0" step="0.1" min="0.1" disabled>
+
+  <div id="edgeFadeGroup" class="fader-sub">
+    <div class="fader-sub-label"><span id="edgeFadeIndicator" class="fader-sub-active"></span>Edge</div>
+    <label id="edgeFeatherLabel">Feathering distance (mm) <span class="info-tip" data-tip="Fade band immediately inside the margin where cells shrink smoothly toward zero. Ignored in slot mode (the width taper handles the same job).">i</span></label>
+    <input type="number" id="edgeFeather" value="14.5" step="0.5" min="0">
+    <label id="edgeExpLabel">Fade multiplier <span class="info-tip" data-tip="Steepness of the edge fade. 1 = linear falloff, higher = flat interior then quick fade near the edge.">i</span></label>
+    <input type="number" id="edgeExp" value="2.0" step="0.1" min="0.1">
+  </div>
+
+  <div id="exclFadeGroup" class="fader-sub">
+    <div class="fader-sub-label"><span id="exclFadeIndicator" class="fader-sub-active"></span>Panel feature</div>
+    <label id="exclFeatherLabel">Feathering distance (mm) <span class="info-tip" data-tip="Fade band outside the buffer where cells shrink smoothly toward zero around the exclusion zone.">i</span></label>
+    <input type="number" id="exclFeather" value="5" step="0.5" min="0">
+    <label id="exclExpLabel">Fade multiplier <span class="info-tip" data-tip="Steepness of the exclusion fade. 1 = linear, higher = flat then quick fade near the zone.">i</span></label>
+    <input type="number" id="exclExp" value="2.0" step="0.1" min="0.1">
+  </div>
+
+  <div id="radialFadeGroup" class="fader-sub">
+    <div class="fader-sub-label">
+      <span id="radialFadeIndicator" class="fader-sub-inactive"></span>
+      <span>Radial</span>
+      <label class="sync-toggle" style="margin-left:auto;"><input type="checkbox" id="radialEnable"><span class="slider"></span></label>
+      <span class="info-tip" data-tip="Optional: shrink cells based on distance from the panel centroid. Handy for spotlight-style patterns that are dense in the middle and sparse toward the corners.">i</span>
+    </div>
+    <label id="radialStartLabel">Inner radius (mm) <span class="info-tip" data-tip="Radius from centroid inside which cells stay at full size (fade doesn't kick in yet).">i</span></label>
+    <input type="number" id="radialStart" value="0" step="1" min="0" disabled>
+    <label id="radialEndLabel">Outer radius (mm) <span class="info-tip" data-tip="Radius beyond which cells are fully faded (dropped from the pattern).">i</span></label>
+    <input type="number" id="radialEnd" value="100" step="1" min="0" disabled>
+    <label id="radialExpLabel">Fade multiplier <span class="info-tip" data-tip="Steepness of the radial fade between Inner and Outer radius. 1 = linear.">i</span></label>
+    <input type="number" id="radialExp" value="1.0" step="0.1" min="0.1" disabled>
+  </div>
   <hr>
 
   <h3>Patterns <span class="info-tip" data-tip="Saved snapshots of your settings (pattern only — not the DXF). Load, duplicate, rename, or delete. Presets persist across page refreshes.">i</span></h3>
@@ -901,9 +985,30 @@ function chainSegments(segments, tolerance) {
   return loops;
 }
 
+// --- Construction-line detector: skip entities that look like construction
+// geometry (Defpoints layer, dashed / center / phantom / hidden linetypes,
+// or a layer name that says "construction"). Fusion 360 sometimes exports
+// these into a sketch DXF and they would otherwise be treated as exclusions.
+var CONSTRUCTION_LINETYPES = {
+  CENTER: 1, CENTER2: 1, CENTERX2: 1,
+  PHANTOM: 1, PHANTOM2: 1, PHANTOMX2: 1,
+  HIDDEN: 1, HIDDEN2: 1, HIDDENX2: 1,
+  DASHED: 1, DASHED2: 1, DASHEDX2: 1,
+  DASHDOT: 1, DASHDOT2: 1, DASHDOTX2: 1,
+  DIVIDE: 1, DIVIDE2: 1, DIVIDEX2: 1
+};
+function isConstructionEntity(ent) {
+  var layer = (ent.layer || '').toString().toLowerCase();
+  if (layer === 'defpoints') return true;
+  if (/construction|aux|guide/.test(layer)) return true;
+  var lt = (ent.lineType || ent.linetype || ent.lineTypeName || '').toString().toUpperCase();
+  if (lt && CONSTRUCTION_LINETYPES[lt]) return true;
+  return false;
+}
+
 // --- Master extraction: parse DXF, apply OCS, chain entities, classify shapes ---
 
-function extractShapes(dxfText, unitOverride) {
+function extractShapes(dxfText, unitOverride, ignoreConstruction) {
   var parser = new DxfParser();
   var dxf = parser.parseSync(dxfText);
   var unitInfo = getUnitScale(dxf, unitOverride);
@@ -922,8 +1027,23 @@ function extractShapes(dxfText, unitOverride) {
   }
 
   // Pass 1: collect closed shapes and open segments
+  var skippedConstruction = 0;
+  var ignoredGeometry = []; // each item = { closed: bool, points: [[x,y],...] }
   for (var i = 0; i < entities.length; i++) {
     var ent = entities[i];
+
+    if (ignoreConstruction && isConstructionEntity(ent)) {
+      skippedConstruction++;
+      // Also capture its geometry so we can optionally overlay it in the preview.
+      var iClosed = closedEntityToCoords(ent, scale, globalFlip);
+      if (iClosed) {
+        ignoredGeometry.push({ closed: true, points: iClosed });
+      } else {
+        var iSeg = entityToSegment(ent, scale, globalFlip);
+        if (iSeg) ignoredGeometry.push({ closed: false, points: iSeg.points });
+      }
+      continue;
+    }
 
     // Try as closed shape first (CIRCLE, closed LWPOLYLINE/POLYLINE)
     var closed = closedEntityToCoords(ent, scale, globalFlip);
@@ -968,7 +1088,7 @@ function extractShapes(dxfText, unitOverride) {
     if (i !== panelIdx) exclusions.push(shapes[i]);
   }
 
-  return { panel: panel, exclusions: exclusions, warnings: warnings, error: null, detectedUnit: unitInfo.unitLabel };
+  return { panel: panel, exclusions: exclusions, warnings: warnings, error: null, detectedUnit: unitInfo.unitLabel, skippedConstruction: skippedConstruction, ignoredGeometry: ignoredGeometry };
 }
 
 // ============================================================
@@ -1346,6 +1466,37 @@ function computeFillHalfLength(cx, cy, dirX, dirY, panelCoords, panelGeoJSON, ma
   return findWidestInsideRange(cx, cy, dirX, dirY, 500, panelCoords, panelGeoJSON, margin, null, null, 0);
 }
 
+// Same as findWidestInsideRange but returns ALL valid segments (an array of
+// {t1, t2}), each meeting the minLen threshold. Used so a slot line that
+// crosses an exclusion zone produces multiple slot pieces, not just the wider side.
+function findAllInsideRanges(cx, cy, dirX, dirY, scanRange, panelCoords, panelGeoJSON, margin, exclCoords, exclGeoJSON, exclBuffer, minLen) {
+  var step = 0.5;
+  var segments = [];
+  var curT1 = null, curLast = null;
+  for (var t = -scanRange; t <= scanRange; t += step) {
+    var px = cx + t * dirX, py = cy + t * dirY;
+    var ok = pointInPoly(px, py, panelGeoJSON) && distToBoundary(px, py, panelCoords) >= margin;
+    if (ok && exclCoords) {
+      for (var e = 0; e < exclCoords.length; e++) {
+        if (pointInPoly(px, py, exclGeoJSON[e]) || distToBoundary(px, py, exclCoords[e]) < exclBuffer) {
+          ok = false; break;
+        }
+      }
+    }
+    if (ok) {
+      if (curT1 === null) curT1 = t;
+      curLast = t;
+    } else if (curT1 !== null) {
+      if (curLast - curT1 >= minLen) segments.push({ t1: curT1, t2: curLast });
+      curT1 = null;
+    }
+  }
+  if (curT1 !== null && curLast - curT1 >= minLen) {
+    segments.push({ t1: curT1, t2: curLast });
+  }
+  return segments;
+}
+
 function capsuleVertices(cx, cy, x1, y1, x2, y2, width) {
   var r = width / 2;
   var dx = x2 - x1, dy = y2 - y1;
@@ -1399,6 +1550,24 @@ function clipSlotToPanel(x1, y1, x2, y2, panelCoords, panelGeoJSON, edgeMargin, 
     x1: cx + r.t1 * ux, y1: cy + r.t1 * uy,
     x2: cx + r.t2 * ux, y2: cy + r.t2 * uy
   };
+}
+
+// Multi-segment clip: returns an array of {x1,y1,x2,y2}, one per surviving segment.
+// Empty array if nothing survives. Used for slot mode so a slot line that crosses
+// an exclusion zone produces separate slot pieces on each side.
+function clipSlotToPanelSegments(x1, y1, x2, y2, panelCoords, panelGeoJSON, edgeMargin, exclCoords, exclGeoJSON, exclBuffer) {
+  var dx = x2 - x1, dy = y2 - y1;
+  var len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1e-10) return [];
+  var ux = dx / len, uy = dy / len;
+  var cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+  var segments = findAllInsideRanges(cx, cy, ux, uy, len / 2, panelCoords, panelGeoJSON, edgeMargin, exclCoords, exclGeoJSON, exclBuffer, 1);
+  return segments.map(function(s) {
+    return {
+      x1: cx + s.t1 * ux, y1: cy + s.t1 * uy,
+      x2: cx + s.t2 * ux, y2: cy + s.t2 * uy
+    };
+  });
 }
 
 // ============================================================
@@ -1481,7 +1650,7 @@ function buildOutputSVG(cells, panelCoords, bbox, mode) {
   return svg;
 }
 
-function buildPreviewSVG(cells, panelCoords, exclusionCoords, bbox, mode) {
+function buildPreviewSVG(cells, panelCoords, exclusionCoords, bbox, mode, ignoredGeometry) {
   var pad = 5;
   var vbX = bbox.minX - pad;
   var vbY = -(bbox.maxY + pad);
@@ -1509,6 +1678,26 @@ function buildPreviewSVG(cells, panelCoords, exclusionCoords, bbox, mode) {
       d += ' ' + svgPathFromCoords(cells[i].vertices);
     }
     svg += '<path d="' + d + '" fill="#444" fill-rule="evenodd" stroke="none"/>';
+  }
+
+  // Overlay ignored construction geometry as dashed grey lines. Closed shapes
+  // get a full outline; open ones a simple polyline.
+  if (ignoredGeometry && ignoredGeometry.length > 0) {
+    var dashW = Math.max(strokeW * 1.5, vbW / 500);
+    var dashLen = (vbW / 120).toFixed(3);
+    for (var g = 0; g < ignoredGeometry.length; g++) {
+      var item = ignoredGeometry[g];
+      var pts = item.points;
+      if (!pts || pts.length < 2) continue;
+      var attrs = 'fill="none" stroke="#8a8a8a" stroke-width="' + dashW.toFixed(3)
+        + '" stroke-dasharray="' + dashLen + ',' + dashLen + '" stroke-linecap="round"';
+      if (item.closed) {
+        svg += '<path d="' + svgPathFromCoords(pts) + '" ' + attrs + '/>';
+      } else {
+        var poly = pts.map(function(p){ return p[0].toFixed(4) + ',' + (-p[1]).toFixed(4); }).join(' ');
+        svg += '<polyline points="' + poly + '" ' + attrs + '/>';
+      }
+    }
   }
 
   return { inner: svg, vbX: vbX, vbY: vbY, vbW: vbW, vbH: vbH };
@@ -1729,11 +1918,13 @@ function buildSlotDXF(slots) {
       continue;
     }
 
-    // Capsule as LWPOLYLINE with 4 vertices + bulge on arc vertices
+    // Capsule as LWPOLYLINE with 4 vertices + bulge on arc vertices.
+    // Vertex order p1→p2→p3→p4 winds CLOCKWISE. DXF bulge > 0 = CCW arc, which
+    // would bulge INWARD toward the slot center; we need the arcs bulging outward
+    // past each end, so bulge is NEGATIVE. tan(pi/4) = 1.0 for a semicircle.
     var ux = dx / len, uy = dy / len;
     var px = -uy, py = ux;
-    // bulge for a semicircle = tan(pi/4) = 1.0
-    var bulge = 1.0;
+    var bulge = -1.0;
 
     // 4 corners: p1(end2+perp), p2(end2-perp), p3(end1-perp), p4(end1+perp)
     var p1x = s.x2 + r * px, p1y = s.y2 + r * py;
@@ -1812,6 +2003,8 @@ var els = {
   fileBanner: document.getElementById('fileBanner'),
   dxfFile: document.getElementById('dxfFile'),
   unitOverride: document.getElementById('unitOverride'),
+  ignoreConstruction: document.getElementById('ignoreConstruction'),
+  showConstruction: document.getElementById('showConstruction'),
   cellShape: document.getElementById('cellShape'),
   nominalSize: document.getElementById('nominalSize'),
   nominalSizeLabel: document.getElementById('nominalSizeLabel'),
@@ -1872,19 +2065,54 @@ function toggleField(labelEl, hidden) {
 // Sync toggle also hides the exclusion inputs — they're just mirrors of edge values.
 function applyExclusionSyncVisibility() {
   var syncing = els.syncExclusion.checked;
+  var isSlot = els.cellShape.value === 'slot';
   toggleField(document.getElementById('exclBufferLabel'), syncing);
-  toggleField(document.getElementById('exclFeatherLabel'), syncing || els.cellShape.value === 'slot');
-  toggleField(document.getElementById('exclExpLabel'), syncing || els.cellShape.value === 'slot');
+  toggleField(document.getElementById('exclFeatherLabel'), syncing || isSlot);
+  toggleField(document.getElementById('exclExpLabel'), syncing || isSlot);
+  // The whole Panel Feature fade sub is dead weight when either sync is on
+  // (feather values mirror edge) or we're in slot mode (feather/exp ignored).
+  var exclSub = document.getElementById('exclFadeGroup');
+  if (exclSub) exclSub.style.display = (syncing || isSlot) ? 'none' : '';
+  updateFaderCount();
 }
 
-// Radial toggle hides all radial inputs when disabled.
+// Radial toggle: keep the inputs hidden when disabled, but the group frame
+// (with the toggle itself) is always visible so you can turn it on.
 function applyRadialVisibility() {
   var hidden = !els.radialEnable.checked;
   toggleField(document.getElementById('radialStartLabel'), hidden);
   toggleField(document.getElementById('radialEndLabel'), hidden);
   toggleField(document.getElementById('radialExpLabel'), hidden);
+  document.getElementById('radialFadeIndicator').className = hidden ? 'fader-sub-inactive' : 'fader-sub-active';
+  document.getElementById('radialFadeGroup').classList.toggle('dimmed', hidden);
+  updateFaderCount();
 }
 els.radialEnable.addEventListener('change', applyRadialVisibility);
+
+// Live count of active fade layers — updates the chip in the Fader header.
+function updateFaderCount() {
+  var isSlot = els.cellShape.value === 'slot';
+  var edgeActive = !isSlot;                       // edge feather/exp are ignored in slot mode
+  var exclActive = !els.syncExclusion.checked && !isSlot;
+  var radialActive = els.radialEnable.checked;
+  var slotActive = isSlot;
+  var indicators = {
+    slotFadeIndicator: slotActive,
+    edgeFadeIndicator: edgeActive,
+    exclFadeIndicator: exclActive,
+    radialFadeIndicator: radialActive
+  };
+  Object.keys(indicators).forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.className = indicators[id] ? 'fader-sub-active' : 'fader-sub-inactive';
+  });
+  var count = (slotActive ? 1 : 0) + (edgeActive ? 1 : 0) + (exclActive ? 1 : 0) + (radialActive ? 1 : 0);
+  var chip = document.getElementById('faderCount');
+  if (chip) {
+    chip.textContent = count + ' active';
+    chip.classList.toggle('none', count === 0);
+  }
+}
 
 els.syncExclusion.addEventListener('change', function() {
   if (els.syncExclusion.checked) {
@@ -2032,6 +2260,30 @@ function updatePanelDimensions(bbox, unit) {
 
 // Shape picker button wiring
 var shapeBtns = document.querySelectorAll('.shape-btn');
+
+// Filename tracks {shape prefix}-{DXF basename}. Lives here (before onShapeChange)
+// so the initial call can use it. `lastAutoFilename` records the last value we
+// wrote so we can tell whether the user has customized the field — if they have,
+// we stop updating it automatically.
+var SHAPE_PREFIX = {
+  hexagon: 'HONEYCOMBED', triangle: 'TRIANGLED', square: 'SQUARED',
+  diamond: 'DIAMONDED', circle: 'CIRCLED', slot: 'SLOTTED'
+};
+var lastAutoFilename = 'HONEYCOMBED-honeycomb';
+function currentAutoFilename() {
+  var prefix = SHAPE_PREFIX[els.cellShape.value] || 'HONEYCOMBED';
+  var suffix = (typeof dxfFileName !== 'undefined' && dxfFileName)
+    ? dxfFileName.replace(/\.(dxf|svg)$/i, '') : 'honeycomb';
+  return prefix + '-' + suffix;
+}
+function updateAutoFilename() {
+  var next = currentAutoFilename();
+  if (els.svgFilename.value === lastAutoFilename) {
+    els.svgFilename.value = next;
+  }
+  lastAutoFilename = next;
+}
+
 function onShapeChange() {
   var shape = els.cellShape.value;
   shapeBtns.forEach(function(btn) {
@@ -2042,34 +2294,24 @@ function onShapeChange() {
   els.cellSizeControls.style.display = isSlot ? 'none' : '';
   els.slotControls.style.display = isSlot ? '' : 'none';
 
-  // Edge feather + exponent are redundant with slot taper; disable for slot mode.
+  // Slot-only fade group: shown only in slot mode.
+  document.getElementById('slotFadeGroup').style.display = isSlot ? '' : 'none';
+
+  // Edge fade sub is dimmed in slot mode (taper handles the same job) and its
+  // fields still exist but are disabled + dimmed so the visual math is clear.
   els.edgeFeather.disabled = isSlot;
   els.edgeExp.disabled = isSlot;
-  var edgeFadeOpacity = isSlot ? '0.4' : '';
-  document.getElementById('edgeFeatherLabel').style.opacity = edgeFadeOpacity;
-  document.getElementById('edgeExpLabel').style.opacity = edgeFadeOpacity;
-  els.edgeFeather.style.opacity = edgeFadeOpacity;
-  els.edgeExp.style.opacity = edgeFadeOpacity;
+  document.getElementById('edgeFadeGroup').classList.toggle('dimmed', isSlot);
 
-  // Exclusion fields: hidden if syncing with panel edge, and in slot mode the
-  // feather/exp are hidden too (same midpoint problem as edge fade).
+  // Exclusion fields + fade sub visibility depend on sync + slot mode.
   applyExclusionSyncVisibility();
+  updateFaderCount();
 
   if (isSlot) els.slotLength.disabled = els.slotFill.checked;
 
-  // Swap the filename prefix to match the new shape, but only when the current
-  // filename still uses one of our known prefixes (so a user-edited name is preserved).
-  var shapePrefix = {
-    hexagon: 'HONEYCOMBED', triangle: 'TRIANGLED', square: 'SQUARED',
-    diamond: 'DIAMONDED', circle: 'CIRCLED', slot: 'SLOTTED'
-  }[shape];
-  if (shapePrefix) {
-    var known = /^(HONEYCOMBED|TRIANGLED|SQUARED|DIAMONDED|CIRCLED|SLOTTED)-/;
-    var cur = els.svgFilename.value;
-    if (known.test(cur)) {
-      els.svgFilename.value = cur.replace(known, shapePrefix + '-');
-    }
-  }
+  // Update the auto filename to reflect the new shape (keeps DXF basename suffix).
+  // If the user has customized the field, updateAutoFilename() leaves it alone.
+  updateAutoFilename();
 
   var nominalTip = '<span class="info-tip" data-tip="Target size of each cell in the interior of the panel, before any fades are applied.">i</span>';
   if (shape === 'hexagon') {
@@ -2092,6 +2334,7 @@ shapeBtns.forEach(function(btn) {
 });
 onShapeChange(); // initialize on load
 applyRadialVisibility(); // apply after auto-slider wrap so slider-rows are hidden too
+updateFaderCount();
 
 // Global tooltip: shown on hover of any .info-tip, positioned to fit within viewport.
 (function() {
@@ -2404,6 +2647,18 @@ function updateDetectedUnitBadge(unit) {
     badge.classList.remove('visible');
   }
 }
+
+function updateConstructionNote(n) {
+  var el = document.getElementById('constructionNote');
+  if (!el) return;
+  if (n > 0) {
+    el.textContent = 'Ignored ' + n + ' construction entit' + (n === 1 ? 'y' : 'ies')
+      + ' (Defpoints layer or dashed / center / phantom / hidden linetypes).';
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
 els.unitOverride.addEventListener('change', function() {
   // Force a re-check after a mode change (badge visibility depends on mode).
   if (state.panelCoords) scheduleRegen();
@@ -2413,21 +2668,22 @@ els.unitOverride.addEventListener('change', function() {
 // ============================================================
 // Per-section reset: revert one section's inputs to defaults.
 // ============================================================
-var SHAPE_PREFIX = {
-  hexagon: 'HONEYCOMBED', triangle: 'TRIANGLED', square: 'SQUARED',
-  diamond: 'DIAMONDED', circle: 'CIRCLED', slot: 'SLOTTED'
-};
+// SHAPE_PREFIX is defined above (near the filename helpers).
 var SECTION_DEFAULTS = {
   cellGeometry: {
     nominalSize: '3.5', minSize: '1.5', webWidth: '1.5', cellRotation: '0',
     orientation: 'flat',
     slotWidth: '3', slotMinWidth: '1', slotLength: '41',
-    slotFill: true, slotSpacing: '8.1', slotAngle: '45',
-    slotTaperDist: '300', slotTaperExp: '10'
+    slotFill: true, slotSpacing: '8.1', slotAngle: '45'
   },
-  edge: { edgeMargin: '4', edgeFeather: '14.5', edgeExp: '2.0' },
-  exclusion: { syncExclusion: false, exclBuffer: '3', exclFeather: '5', exclExp: '2.0' },
-  radial: { radialEnable: false, radialStart: '0', radialEnd: '100', radialExp: '1.0' },
+  edge: { edgeMargin: '4' },
+  exclusion: { syncExclusion: false, exclBuffer: '3' },
+  fade: {
+    slotTaperDist: '300', slotTaperExp: '10',
+    edgeFeather: '14.5', edgeExp: '2.0',
+    exclFeather: '5', exclExp: '2.0',
+    radialEnable: false, radialStart: '0', radialEnd: '100', radialExp: '1.0'
+  },
   output: { outputMode: 'holes' }
 };
 
@@ -2449,17 +2705,22 @@ function resetSection(name) {
     }
   });
   if (name === 'cellGeometry') {
-    document.getElementById('slotTaperDistSlider').value = d.slotTaperDist;
-    document.getElementById('slotTaperExpSlider').value = d.slotTaperExp;
     els.slotLength.disabled = d.slotFill;
   }
-  if (name === 'radial') {
+  if (name === 'fade') {
+    document.getElementById('slotTaperDistSlider').value = d.slotTaperDist;
+    document.getElementById('slotTaperExpSlider').value = d.slotTaperExp;
     els.radialStart.disabled = !d.radialEnable;
     els.radialEnd.disabled = !d.radialEnable;
     els.radialExp.disabled = !d.radialEnable;
+    applyRadialVisibility();
+    updateFaderCount();
   }
   if (name === 'output') {
-    els.svgFilename.value = (SHAPE_PREFIX[els.cellShape.value] || 'HONEYCOMBED') + '-honeycomb';
+    // Reset to the auto value based on the current shape + DXF basename.
+    els.svgFilename.value = lastAutoFilename;
+    els.svgFilename.value = currentAutoFilename();
+    lastAutoFilename = els.svgFilename.value;
   }
   regenerateNow();
 }
@@ -2559,32 +2820,68 @@ document.addEventListener('keydown', function(e) {
 setTimeout(function(){ lastSnapshotStr = JSON.stringify(snapshotState()); }, 100);
 
 // ============================================================
-// Hover-preview: hover a pattern row → temporarily apply its settings.
+// Hover-preview: hover a pattern row → temporarily apply its settings to the
+// preview only. Deliberately does NOT run onShapeChange or any UI toggle — the
+// sidebar's layout must stay perfectly stable during hover, otherwise scroll
+// shifts move the mouse off the row and create a jitter loop.
 // ============================================================
 var hoverPrevSnapshot = null;
+
+// Only the fields that regenerateNow actually reads. No DOM show/hide, no
+// filename updates, no disabled-state changes. Sidebar stays still; preview
+// changes.
+function applyPatternForPreview(s) {
+  els.nominalSize.value = s.nominalSize;
+  els.minSize.value = s.minSize;
+  els.webWidth.value = s.webWidth;
+  els.cellRotation.value = s.cellRotation;
+  els.slotWidth.value = s.slotWidth;
+  els.slotMinWidth.value = s.slotMinWidth;
+  els.slotLength.value = s.slotLength;
+  els.slotSpacing.value = s.slotSpacing;
+  els.slotAngle.value = s.slotAngle;
+  els.slotTaperDist.value = s.slotTaperDist;
+  els.slotTaperExp.value = s.slotTaperExp;
+  els.edgeMargin.value = s.edgeMargin;
+  els.edgeFeather.value = s.edgeFeather;
+  els.edgeExp.value = s.edgeExp;
+  els.exclBuffer.value = s.exclBuffer;
+  els.exclFeather.value = s.exclFeather;
+  els.exclExp.value = s.exclExp;
+  els.radialStart.value = s.radialStart;
+  els.radialEnd.value = s.radialEnd;
+  els.radialExp.value = s.radialExp;
+  els.slotFill.checked = !!s.slotFill;
+  els.syncExclusion.checked = !!s.syncExclusion;
+  els.radialEnable.checked = !!s.radialEnable;
+  var orient = document.querySelector('input[name="orientation"][value="' + s.orientation + '"]');
+  if (orient) orient.checked = true;
+  els.cellShape.value = s.cellShape;
+  regenerateNow();
+}
+
 document.getElementById('patternsList').addEventListener('mouseover', function(e) {
   var row = e.target.closest('.pattern-item');
   if (!row || !row.dataset.patternId) return;
   if (row.classList.contains('hovering')) return;
   var p = patternState.patterns.find(function(x){ return x.id === row.dataset.patternId; });
   if (!p) return;
-  // Save current form state (not persisted; just for revert)
   hoverPrevSnapshot = getCurrentPatternSettings();
-  applyingHistory = true; // don't record undo during hover peek
-  applyPatternSettings(p.settings);
+  applyingHistory = true;
+  applyPatternForPreview(p.settings);
   applyingHistory = false;
   row.classList.add('hovering');
 });
 document.getElementById('patternsList').addEventListener('mouseout', function(e) {
   var row = e.target.closest('.pattern-item');
   if (!row || !row.classList.contains('hovering')) return;
-  // Only revert if mouse actually left the row (mouseout fires on child transitions too)
+  // Only revert if the mouse actually left the row (mouseout fires on children too)
   var to = e.relatedTarget;
   if (to && row.contains(to)) return;
   row.classList.remove('hovering');
   if (hoverPrevSnapshot) {
     applyingHistory = true;
-    applyPatternSettings(hoverPrevSnapshot);
+    applyPatternForPreview(hoverPrevSnapshot);
     applyingHistory = false;
     hoverPrevSnapshot = null;
   }
@@ -2679,11 +2976,28 @@ function setDxfFile(text, name) {
   dxfFileName = name;
   els.fileBanner.textContent = name;
   els.fileBanner.classList.remove('empty');
+  updateCurrentFileNote();
+  updateAutoFilename();
   try {
     localStorage.setItem('hcg_dxfText', text);
     localStorage.setItem('hcg_dxfName', name);
   } catch (e) {}
   regenerateNow();
+}
+
+// The native <input type="file"> can't be programmatically populated after a
+// page reload, so browsers always show "No file selected" even when we've
+// restored a DXF from localStorage. This note reflects the real loaded state.
+function updateCurrentFileNote() {
+  var el = document.getElementById('currentFileNote');
+  if (!el) return;
+  if (dxfFileName && state.panelCoords) {
+    el.textContent = dxfFileName;
+    el.classList.remove('empty');
+  } else {
+    el.textContent = 'No file loaded';
+    el.classList.add('empty');
+  }
 }
 
 els.dxfFile.addEventListener('change', function(e) {
@@ -2708,7 +3022,9 @@ els.dxfFile.addEventListener('change', function(e) {
     dxfFileName = savedName;
     els.fileBanner.textContent = savedName;
     els.fileBanner.classList.remove('empty');
+    updateAutoFilename();
     regenerateNow();
+    updateCurrentFileNote();
   }
 })();
 
@@ -2721,7 +3037,8 @@ els.radialEnable.addEventListener('change', function() {
 
 // Attach listeners to all parameter inputs
 var paramInputs = [
-  els.unitOverride, els.nominalSize, els.minSize, els.webWidth, els.cellRotation,
+  els.unitOverride, els.ignoreConstruction, els.showConstruction,
+  els.nominalSize, els.minSize, els.webWidth, els.cellRotation,
   els.edgeMargin, els.edgeFeather, els.edgeExp,
   els.exclBuffer, els.exclFeather, els.exclExp,
   els.radialEnable, els.radialStart, els.radialEnd, els.radialExp,
@@ -2790,13 +3107,14 @@ function regenerateNow() {
     els.btnDebug.disabled = true;
     updateDetectedUnitBadge(null);
     updatePanelDimensions(null);
+    updateConstructionNote(0);
     return;
   }
 
   // Parse DXF
   var result;
   try {
-    result = extractShapes(dxfText, els.unitOverride.value);
+    result = extractShapes(dxfText, els.unitOverride.value, els.ignoreConstruction.checked);
   } catch (e) {
     msgs.push({ type: 'error', text: 'DXF parse error: ' + e.message });
     showMessages(msgs);
@@ -2810,6 +3128,7 @@ function regenerateNow() {
   }
 
   updateDetectedUnitBadge(result.detectedUnit);
+  updateConstructionNote(result.skippedConstruction || 0);
 
   if (result.error) {
     msgs.push({ type: 'error', text: result.error });
@@ -2826,6 +3145,7 @@ function regenerateNow() {
   state.panelGeoJSON = coordsToTurf(state.panelCoords);
   state.exclusionGeoJSON = state.exclusionCoords.map(coordsToTurf);
   state.centroid = polygonCentroid(state.panelCoords);
+  state.ignoredGeometry = result.ignoredGeometry || [];
 
   if (result.exclusions.length === 0) {
     msgs.push({ type: 'info', text: 'No exclusion zones found. Honeycomb will cover the full panel.' });
@@ -2867,12 +3187,11 @@ function regenerateNow() {
       // Slot mode: taper already thins by position, and clipSlotToPanel enforces the
       // edge margin along the slot's actual length — so we skip the midpoint edge gate.
       var eS = 1.0;
+      // Slot mode: no exclusion midpoint gate — clipSlotToPanelSegments cuts the
+      // buffer out along the slot's actual length and keeps the surviving pieces
+      // on either side. Rejecting the whole rank based on rank-center position
+      // was killing legit corner segments on the far side of a cutout.
       var xS = 1.0;
-      if (state.exclusionCoords.length > 0) {
-        // Slot mode ignores exclusion feather/exp too — same midpoint problem as edge fade.
-        xS = exclusionScale(s.cx, s.cy, state.exclusionCoords, state.exclusionGeoJSON, exclB, 0, exclE);
-        if (xS < 0) continue;
-      }
       var rS = 1.0;
       if (radOn) {
         rS = radialScale(s.cx, s.cy, state.centroid, radS, radEnd, radE);
@@ -2883,20 +3202,24 @@ function regenerateNow() {
       var finalW = s.taperWidth * fadeScale;
       if (finalW < slotMinW) continue;
 
-      // Clip slot endpoints to panel boundary (handles midpoints outside the panel).
-      // The centerline endpoints need to stop far enough back that the semicircular
-      // capsule cap (radius = finalW/2) doesn't spill past the panel edge.
+      // Clip slot endpoints to panel boundary + exclusion zones (handles midpoints
+      // outside the panel). Returns multiple segments when the slot line crosses
+      // an exclusion — each becomes its own slot piece, so slots visibly continue
+      // on the far side of a cutout.
       var slotEffectiveMargin = Math.max(edgeM, finalW / 2);
       var slotEffectiveBuffer = Math.max(exclB, finalW / 2);
-      var clipped = clipSlotToPanel(s.x1, s.y1, s.x2, s.y2, state.panelCoords, state.panelGeoJSON, slotEffectiveMargin, state.exclusionCoords, state.exclusionGeoJSON, slotEffectiveBuffer);
-      if (!clipped) continue;
-
-      var verts = capsuleVertices(s.cx, s.cy, clipped.x1, clipped.y1, clipped.x2, clipped.y2, finalW);
-      slots.push({
-        cx: s.cx, cy: s.cy,
-        x1: clipped.x1, y1: clipped.y1, x2: clipped.x2, y2: clipped.y2,
-        width: finalW, vertices: verts
-      });
+      var segments = clipSlotToPanelSegments(s.x1, s.y1, s.x2, s.y2, state.panelCoords, state.panelGeoJSON, slotEffectiveMargin, state.exclusionCoords, state.exclusionGeoJSON, slotEffectiveBuffer);
+      if (segments.length === 0) continue;
+      for (var j = 0; j < segments.length; j++) {
+        var seg = segments[j];
+        var pieceCx = (seg.x1 + seg.x2) / 2, pieceCy = (seg.y1 + seg.y2) / 2;
+        var verts = capsuleVertices(pieceCx, pieceCy, seg.x1, seg.y1, seg.x2, seg.y2, finalW);
+        slots.push({
+          cx: pieceCx, cy: pieceCy,
+          x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2,
+          width: finalW, vertices: verts
+        });
+      }
     }
 
     state.lastCells = slots;
@@ -2907,7 +3230,7 @@ function regenerateNow() {
     }
 
     state.lastSvg = buildOutputSVG(slots, state.panelCoords, bbox, mode);
-    var preview = buildPreviewSVG(slots, state.panelCoords, state.exclusionCoords, bbox, mode);
+    var preview = buildPreviewSVG(slots, state.panelCoords, state.exclusionCoords, bbox, mode, els.showConstruction.checked ? state.ignoredGeometry : null);
     els.previewSvg.setAttribute('viewBox', preview.vbX.toFixed(4) + ' ' + preview.vbY.toFixed(4) + ' ' + preview.vbW.toFixed(4) + ' ' + preview.vbH.toFixed(4));
     els.previewSvg.innerHTML = preview.inner;
     els.previewSvg.style.display = '';
@@ -2987,7 +3310,7 @@ function regenerateNow() {
     }
 
     state.lastSvg = buildOutputSVG(cells, state.panelCoords, bbox, mode);
-    var preview = buildPreviewSVG(cells, state.panelCoords, state.exclusionCoords, bbox, mode);
+    var preview = buildPreviewSVG(cells, state.panelCoords, state.exclusionCoords, bbox, mode, els.showConstruction.checked ? state.ignoredGeometry : null);
     els.previewSvg.setAttribute('viewBox', preview.vbX.toFixed(4) + ' ' + preview.vbY.toFixed(4) + ' ' + preview.vbW.toFixed(4) + ' ' + preview.vbH.toFixed(4));
     els.previewSvg.innerHTML = preview.inner;
     els.previewSvg.style.display = '';
